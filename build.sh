@@ -10,7 +10,7 @@ OUT=index.html
   echo '<style>[hidden]{display:none!important} img{max-width:100%}</style>'
   echo '</head><body>'
   echo '<div id="app" class="app"></div>'
-  echo '<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>'
+  echo '<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.2/dist/umd/supabase.js"></script>'
   echo "<script>window.FC_WEB={url:'${SB_URL}',key:'${SB_KEY}'};</script>"
   echo '<script>'
   cat src/core.js; echo; cat src/content.js; echo; cat src/lessons.js; echo; cat src/app.js

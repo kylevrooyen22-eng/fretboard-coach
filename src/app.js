@@ -34,12 +34,12 @@
     async load() {
       let cloud = null;
       if (WEB) {
-        sb = window.supabase.createClient(WEB.url, WEB.key, { auth: { persistSession: true, detectSessionInUrl: true, flowType: 'pkce' } });
+        sb = window.supabase.createClient(WEB.url, WEB.key, { auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true, flowType: 'implicit' } });
         const { data: { session } } = await sb.auth.getSession();
         if (!session) return { needLogin: true };
         sbUser = session.user;
         // tidy the address bar after the Google redirect
-        if (location.search.includes('code=')) history.replaceState(null, '', location.pathname);
+        if (location.hash.includes('access_token') || location.search.includes('code=')) history.replaceState(null, '', location.pathname);
         try {
           const { data, error } = await sb.from('progress').select('data').eq('user_id', sbUser.id).maybeSingle();
           if (error) throw error;
@@ -452,8 +452,6 @@
       el('span', { html: '<svg width="28" height="28" viewBox="0 0 28 28" aria-hidden="true"><defs><linearGradient id="fcg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#3D9BFF"/><stop offset="1" stop-color="#0062E0"/></linearGradient></defs><rect width="28" height="28" rx="7" fill="url(#fcg)"/><g stroke="#fff" stroke-opacity=".85" stroke-width="1.3" stroke-linecap="round"><line x1="6" y1="9" x2="22" y2="9"/><line x1="6" y1="14" x2="22" y2="14"/><line x1="6" y1="19" x2="22" y2="19"/></g><g stroke="#fff" stroke-opacity=".45" stroke-width="1"><line x1="11" y1="6" x2="11" y2="22"/><line x1="17" y1="6" x2="17" y2="22"/></g><circle cx="14" cy="14" r="3.4" fill="#FF9500" stroke="#fff" stroke-width="1.2"/></svg>' }),
       el('b', { text: 'Fretboard Coach' })));
     rail.append(el('p', { class: 'save', text: Store.status }));
-    if (sbUser) rail.append(el('div', { class: 'account' }, el('span', { class: 'who', text: (sbUser.user_metadata && (sbUser.user_metadata.full_name || sbUser.user_metadata.name)) || sbUser.email || 'Signed in' }),
-      el('button', { class: 'btn ghost', onclick: async () => { try { await Store.flush(); await sb.auth.signOut(); } catch (e) { /* ignore */ } location.reload(); } }, 'Sign out')));
     rail.append(el('button', { class: 'home-link', 'aria-current': view.name === 'home' ? 'page' : null, onclick: () => go('home') }, 'Today'));
     const list = el('div', { class: 'list' });
     let g = null;
@@ -465,6 +463,8 @@
         el('span', { class: 'num', text: String(st.n).padStart(2, '0') }), el('span', { class: 't', text: st.title }), chip));
     });
     rail.append(list);
+    if (sbUser) rail.append(el('div', { class: 'account' }, el('span', { class: 'who', text: sbUser.email || 'Signed in' }),
+      el('button', { class: 'signout', onclick: async () => { try { await Store.flush(); await sb.auth.signOut(); } catch (e) { /* ignore */ } location.reload(); } }, 'Sign out')));
   }
 
   function go(name, id, tab) {
@@ -691,12 +691,33 @@
       el('div', { class: 'login-card card' },
         el('span', { html: '<svg width="64" height="64" viewBox="0 0 28 28" aria-hidden="true"><defs><linearGradient id="fcg2" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#3D9BFF"/><stop offset="1" stop-color="#0062E0"/></linearGradient></defs><rect width="28" height="28" rx="7" fill="url(#fcg2)"/><g stroke="#fff" stroke-opacity=".85" stroke-width="1.3" stroke-linecap="round"><line x1="6" y1="9" x2="22" y2="9"/><line x1="6" y1="14" x2="22" y2="14"/><line x1="6" y1="19" x2="22" y2="19"/></g><g stroke="#fff" stroke-opacity=".45" stroke-width="1"><line x1="11" y1="6" x2="11" y2="22"/><line x1="17" y1="6" x2="17" y2="22"/></g><circle cx="14" cy="14" r="3.4" fill="#FF9500" stroke="#fff" stroke-width="1.2"/></svg>' }),
         el('h1', { text: 'Fretboard Coach' }),
-        el('p', { class: 'muted', text: '45-minute guitar sessions that tell you exactly what to practise. Sign in so your progress saves to your own account.' }),
-        el('button', { class: 'btn primary big google', onclick: async () => {
-          err.textContent = '';
-          const { error } = await sb.auth.signInWithOAuth({ provider: 'google', options: { redirectTo: location.origin + location.pathname } });
-          if (error) err.textContent = 'Sign-in didn\u2019t start: ' + error.message;
-        } }, el('span', { html: '<svg width="18" height="18" viewBox="0 0 48 48" aria-hidden="true"><path fill="#FFC107" d="M43.6 20.5H42V20H24v8h11.3C33.7 32.7 29.2 36 24 36c-6.6 0-12-5.4-12-12s5.4-12 12-12c3.1 0 5.8 1.2 7.9 3.1l5.7-5.7C34 6.1 29.3 4 24 4 12.9 4 4 12.9 4 24s8.9 20 20 20 20-8.9 20-20c0-1.3-.1-2.3-.4-3.5z"/><path fill="#FF3D00" d="M6.3 14.7l6.6 4.8C14.7 15.1 19 12 24 12c3.1 0 5.8 1.2 7.9 3.1l5.7-5.7C34 6.1 29.3 4 24 4 16.3 4 9.7 8.3 6.3 14.7z"/><path fill="#4CAF50" d="M24 44c5.2 0 9.9-2 13.4-5.2l-6.2-5.2C29.2 35.1 26.7 36 24 36c-5.2 0-9.6-3.3-11.3-8l-6.5 5C9.5 39.6 16.2 44 24 44z"/><path fill="#1976D2" d="M43.6 20.5H42V20H24v8h11.3c-.8 2.2-2.2 4.2-4.1 5.6l6.2 5.2C37 39.2 44 34 44 24c0-1.3-.1-2.3-.4-3.5z"/></svg>' }), 'Continue with Google'),
+        el('p', { class: 'muted', text: '45-minute guitar sessions that tell you exactly what to practise. Sign in with your email so your progress saves to your own account.' }),
+        (() => {
+          const form = el('form', { class: 'login-form' });
+          const input = el('input', { id: 'login-email', type: 'email', required: true, autocomplete: 'email', placeholder: 'you@example.com', 'aria-label': 'Email address' });
+          const btn = el('button', { class: 'btn primary big', type: 'submit' }, 'Email me a sign-in link');
+          form.append(input, btn);
+          form.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const email = input.value.trim();
+            if (!email) return;
+            err.textContent = ''; btn.disabled = true; btn.textContent = 'Sending…';
+            const { error } = await sb.auth.signInWithOtp({ email, options: { emailRedirectTo: location.origin + location.pathname, shouldCreateUser: true } });
+            if (error) {
+              btn.disabled = false; btn.textContent = 'Email me a sign-in link';
+              err.textContent = /rate|limit|security purposes/i.test(error.message) ? 'Too many links sent just now. Wait a few minutes and try again.' : 'Couldn\u2019t send the link: ' + error.message;
+              return;
+            }
+            form.replaceWith(el('div', { class: 'sent stack' },
+              el('h2', { text: 'Check your email' }),
+              el('p', null, 'We sent a sign-in link to ', el('b', { text: email }), '. Open it on this device and you\u2019re in.'),
+              el('div', { class: 'spam-note' }, el('b', { text: 'Can\u2019t find it? ' }), 'Check your spam or junk folder. The first email often lands there. Mark it as "not spam" so the next one doesn\u2019t.'),
+              el('p', { class: 'muted', text: 'You\u2019ll stay signed in on this device, so you only do this once.' }),
+              el('button', { class: 'btn ghost', type: 'button', onclick: () => renderLogin() }, 'Use a different email')));
+          });
+          return form;
+        })(),
+        el('p', { class: 'muted small', text: 'No password needed. First time? The email may land in your spam folder.' }),
         err)));
   }
   Store.load().then((data) => {
