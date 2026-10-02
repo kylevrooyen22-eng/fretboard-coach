@@ -174,7 +174,7 @@ const GC = (function () {
     4: ['C', 'Dm', 'Em', 'E', 'G', 'Am', 'Am*'],
     5: ['A', 'Cm', 'Dm', 'D', 'E', 'Gm', 'Gm*'],
   };
-  const shapeLabel = (code) => code.endsWith('*') ? 'm7' + FLAT + '5 (bent ' + code.slice(0, -1) + ' shape)' : code + ' shape';
+  const shapeLabel = (code) => code.endsWith('*') ? 'no neat shape: just its 3 notes' : code + ' shape';
   function chordTonesIn(dots, deg, keyPc) {
     const pcs = chordPcs(deg, keyPc);
     return dots.filter((d) => pcs.includes(pcAt(d.s, d.f))).map((d) => ({ ...d, role: ['R', '3', '5'][pcs.indexOf(pcAt(d.s, d.f))] }));
