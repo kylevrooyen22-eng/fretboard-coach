@@ -210,6 +210,8 @@ ol.how li::marker { color: var(--tint); font-weight: 700; }
 .path { display: flex; flex-direction: column; gap: 6px; }
 .path-cap { font: 600 15px/1.3 var(--f-round); font-variant-numeric: tabular-nums; }
 .path-cap .muted { font-weight: 400; margin-left: 8px; }
+.path-ctrls { display: flex; flex-wrap: wrap; gap: 8px; }
+.path-ctrls .btn[disabled] { opacity: .45; cursor: default; }
 
 /* Lessons */
 .lesson { display: flex; flex-direction: column; gap: 10px; }
@@ -2066,10 +2068,10 @@ const LESSONS = {
     // faint dots = the shape you're in right now (same group as the current note)
     const ghostCache = {};
     const ghostsFor = (grp) => ghostCache[grp] || (ghostCache[grp] = (() => { const seen = new Set(); return steps.filter((x) => x.grp === grp).filter((x) => { const k = x.s + ':' + x.f; if (seen.has(k)) return false; seen.add(k); return true; }).map((x) => ({ s: x.s, f: x.f, kind: 'ghost', text: '' })); })());
-    const boardBox = el('div'), cap = el('div', { class: 'path-cap' });
-    const wrap = el('div', { class: 'path' }, boardBox, cap,
-      el('p', { class: 'muted small', html: 'Follow the <b style="color:var(--target)">yellow dot</b>: it’s the note to play now. Its number is the finger: <b>1</b> index, <b>2</b> middle, <b>3</b> ring, <b>4</b> pinky, <b>0</b> open string. With the metronome off it shows you the route; start the metronome and it moves one note per click.' }));
-    let i = 0, synced = false, timer = null;
+    const boardBox = el('div'), cap = el('div', { class: 'path-cap' }), ctrls = el('div', { class: 'path-ctrls' });
+    const wrap = el('div', { class: 'path' }, boardBox, cap, ctrls,
+      el('p', { class: 'muted small', html: 'The <b style="color:var(--target)">yellow dot</b> is the note to play now. Its number is the finger: <b>1</b> index, <b>2</b> middle, <b>3</b> ring, <b>4</b> pinky, <b>0</b> open string. Start the metronome and the dot moves one note per click; stop it and the dot waits where you are. <b>Preview</b> plays it through slowly without sound.' }));
+    let i = 0, fresh = true, previewing = false, timer = null;
     function draw() {
       const st = steps[i], prev = steps[i - 1];
       boardBox.innerHTML = '';
@@ -2079,16 +2081,31 @@ const LESSONS = {
       boardBox.append(fretboard({ lo, hi, dots }, { label: 'Animated route' }));
       cap.innerHTML = '';
       cap.append(el('b', { text: st.seg || '' }), el('span', { text: ` · ${G.STRING_NAMES[st.s]} string, ${st.f === 0 ? 'open' : 'fret ' + st.f}` + (st.finger ? ` · finger ${st.finger}` : '') }), el('span', { class: 'muted', text: `   ${i + 1} / ${steps.length}` }));
+      paintCtrls();
     }
-    function adv() { i = (i + 1) % steps.length; draw(); }
-    function loop() {
-      if (!wrap.isConnected) return; // page changed: stop quietly
-      if (!synced) adv();
-      timer = setTimeout(loop, 60000 / Math.max(30, Metro.bpm));
+    function go(n) { i = (n + steps.length) % steps.length; fresh = false; draw(); }
+    function stopPreview() { previewing = false; clearTimeout(timer); }
+    function tickPreview() {
+      if (!wrap.isConnected || !previewing) return;
+      go(i + 1);
+      timer = setTimeout(tickPreview, 60000 / Math.min(80, Metro.bpm));
+    }
+    function paintCtrls() {
+      ctrls.innerHTML = '';
+      const running = Metro.on;
+      ctrls.append(
+        el('button', { class: 'btn', disabled: running, onclick: () => { if (previewing) stopPreview(); else { previewing = true; timer = setTimeout(tickPreview, 300); } paintCtrls(); } }, running ? 'Following the metronome' : previewing ? '❚❚ Pause preview' : '▶ Preview'),
+        el('button', { class: 'btn', 'aria-label': 'Previous note', disabled: running, onclick: () => { stopPreview(); go(i - 1); } }, '‹ Back'),
+        el('button', { class: 'btn', 'aria-label': 'Next note', disabled: running, onclick: () => { stopPreview(); go(i + 1); } }, 'Next ›'),
+        el('button', { class: 'btn', onclick: () => { stopPreview(); i = 0; fresh = true; draw(); } }, '↺ Start over'));
     }
     draw();
-    timer = setTimeout(loop, 900);
-    return { el: wrap, beat(b) { if (!synced || b === 0) { synced = true; i = -1; } adv(); }, unsync() { synced = false; } };
+    return {
+      el: wrap,
+      // first click after a fresh start plays note 1; after that every click moves on one note
+      beat() { if (previewing) stopPreview(); if (fresh) { fresh = false; draw(); } else go(i + 1); },
+      state() { if (Metro.on) stopPreview(); paintCtrls(); },
+    };
   }
   function warmupSteps() {
     const out = [];
@@ -2225,7 +2242,7 @@ const LESSONS = {
       const startBtn = el('button', { class: 'btn primary', onclick: () => { if (Metro.on) Metro.stop(); else { call = null; sinceCall = 0; Metro.start(Metro.bpm); } } });
       const setBpm = (d) => { Metro.bpm = Math.max(30, Math.min(220, Metro.bpm + d)); bpmEl.textContent = Metro.bpm; };
       let player = null;
-      const paintBtn = () => { startBtn.textContent = Metro.on ? 'Stop' : 'Start metronome'; if (player && !Metro.on) player.unsync(); };
+      const paintBtn = () => { startBtn.textContent = Metro.on ? 'Stop' : 'Start metronome'; if (player) player.state(); };
       Metro.onState = paintBtn; paintBtn();
       box.append(el('div', { class: 'metro' }, startBtn,
         el('div', { class: 'row', style: 'gap:6px' }, el('button', { class: 'btn', 'aria-label': 'Slower', onclick: () => setBpm(-5) }, '−'), bpmEl, el('span', { class: 'muted', text: 'bpm' }), el('button', { class: 'btn', 'aria-label': 'Faster', onclick: () => setBpm(5) }, '+')),
@@ -2243,7 +2260,7 @@ const LESSONS = {
       };
       Metro.onBeat = (b) => {
         beats.querySelectorAll('i').forEach((x, i) => x.classList.toggle('on', i === b % 4));
-        if (player) player.beat(b);
+        if (player) player.beat();
         if (!hasCall) return;
         if (call === null || sinceCall >= L.every) { call = D.callout(lvl, calloutState); sinceCall = 0; cBig.textContent = call.big; cSmall.textContent = call.where || ''; cAns.textContent = ''; showBoard(false); }
         if (call.answer && sinceCall === Math.floor(L.every / 2)) { cAns.textContent = 'Check: ' + call.answer; showBoard(true); }
@@ -2527,8 +2544,8 @@ const LESSONS = {
     const bpmEl = el('span', { class: 'bpm', text: bpm });
     const beats = el('div', { class: 'beats' }, ...[0, 1, 2, 3].map((i) => el('i', { class: i === 0 ? 'accent' : '' })));
     const btn = el('button', { class: 'btn primary', onclick: () => Metro.on ? Metro.stop() : Metro.start(Metro.bpm) });
-    Metro.onState = () => { btn.textContent = Metro.on ? 'Stop' : 'Start metronome'; if (player && !Metro.on) player.unsync(); }; Metro.onState();
-    Metro.onBeat = (b) => { beats.querySelectorAll('i').forEach((x, i) => x.classList.toggle('on', i === b % 4)); if (player) player.beat(b); };
+    Metro.onState = () => { btn.textContent = Metro.on ? 'Stop' : 'Start metronome'; if (player) player.state(); }; Metro.onState();
+    Metro.onBeat = (b) => { beats.querySelectorAll('i').forEach((x, i) => x.classList.toggle('on', i === b % 4)); if (player) player.beat(); };
     const set = (d) => { Metro.bpm = Math.max(30, Math.min(220, Metro.bpm + d)); bpmEl.textContent = Metro.bpm; };
     return el('div', { class: 'metro' }, btn, el('div', { class: 'row', style: 'gap:6px' }, el('button', { class: 'btn', onclick: () => set(-5) }, '−'), bpmEl, el('span', { class: 'muted', text: 'bpm' }), el('button', { class: 'btn', onclick: () => set(5) }, '+')), beats);
   }
