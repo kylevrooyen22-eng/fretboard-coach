@@ -854,6 +854,14 @@ const STAGES = (function (G) {
   }
   const ROOT_A = 45; // A on low E, fret 5
   const ghostPos = (p, k) => G.position(p, k).map((d) => ({ ...d, kind: 'ghost', text: '' }));
+  // Animated routes (key of C): one step per click, with the finger to use
+  const INDEX_FRET = { 4: 1, 5: 2, 1: 5, 2: 7, 3: 10 }; // where the index finger sits in each position
+  const fingerFor = (p, f) => (p === 4 ? Math.min(f, 4) : Math.min(4, Math.max(1, f - INDEX_FRET[p] + 1)));
+  const posRun = (p, dir) => {
+    const up = G.position(p, C).slice().sort((a, b) => a.s - b.s || a.f - b.f).map((x) => ({ s: x.s, f: x.f, finger: fingerFor(p, x.f), grp: p, seg: `Position ${p} ${dir}` }));
+    return dir === 'up' ? up : up.reverse();
+  };
+  const route = (...segs) => segs.flat().filter((x, i, a) => i === 0 || x.s !== a[i - 1].s || x.f !== a[i - 1].f);
 
   const PLAYS = {
     notes: {
@@ -953,13 +961,17 @@ const STAGES = (function (G) {
     pos1: {
       title: 'Home base run',
       how: ['The shape is below. Start on the lowest note: <b>A, low E string, fret 5</b>.', 'Play every note of position 1 up to the highest note (<b>C, high e, fret 8</b>), then all the way back down. One note per click.', 'Say "one" out loud every time you land on a C (the orange dots).'],
+      route: () => route(posRun(1, 'up'), posRun(1, 'down')),
       levels: [{ label: 'Level 1', detail: 'Up and down in A minor / C', bpm: 60, every: 0 }, { label: 'Level 2', detail: 'Up and down, faster', bpm: 90, every: 0 }, { label: 'Level 3', detail: 'Eyes closed in C. Then the same shape in G (start low E fret 12) and D (start low E fret 7). Change the key on the diagram to see them.', bpm: 110, every: 0 }],
       callout: null,
       pass: 'Three runs in a row with no stops and no wrong notes. Level 3: three runs eyes closed in C, then one clean run each in G and D.',
     },
     pos25: {
       title: 'Link the shapes',
-      how: ['One note per click. <b>Up</b> = from the low E string to the high e string; <b>down</b> = back. Level 1: position 5 up and down (starts on G, low E fret 3), then position 2 up and down (starts on B, low E fret 7). Use the tabs on the diagram below.', 'Level 2, one non-stop snake: position 5 <b>up</b> (low E fret 3 → high e fret 5) → carry on along high e to frets 7 and 8 → position 1 <b>down</b> (to low E fret 5) → slide to low E fret 7 → position 2 <b>up</b> (to high e fret 10).', 'Level 3: the Level 2 snake, then back: position 2 <b>down</b> (to low E fret 7) → back to low E fret 5 → position 1 <b>up</b> (to high e fret 8) → back along high e to frets 7 and 5 → position 5 <b>down</b> (to low E fret 3).'],
+      how: ['One note per click. <b>Up</b> = from the low E string to the high e string; <b>down</b> = back. Level 1: position 5 up and down (starts on G, low E fret 3), then position 2 up and down (starts on B, low E fret 7). Use the tabs on the diagram below.', 'Level 2, one non-stop snake: position 5 <b>up</b> (low E fret 3 → high e fret 5) → shift to high e fret 8 → position 1 <b>down</b> (to low E fret 5) → slide to low E fret 7 → position 2 <b>up</b> (to high e fret 10).', 'Level 3: the Level 2 snake, then back: position 2 <b>down</b> (to low E fret 7) → back to low E fret 5 → position 1 <b>up</b> (to high e fret 8) → shift back to high e fret 5 → position 5 <b>down</b> (to low E fret 3).'],
+      route: (lvl) => lvl === 0 ? route(posRun(5, 'up'), posRun(5, 'down'), posRun(2, 'up'), posRun(2, 'down'))
+        : lvl === 1 ? route(posRun(5, 'up'), posRun(1, 'down'), posRun(2, 'up'))
+          : route(posRun(5, 'up'), posRun(1, 'down'), posRun(2, 'up'), posRun(2, 'down'), posRun(1, 'up'), posRun(5, 'down')),
       levels: [{ label: 'Level 1', detail: 'Positions 5 and 2 on their own', bpm: 60, every: 0 }, { label: 'Level 2', detail: 'Snake: 5 up → 1 down → 2 up', bpm: 70, every: 0 }, { label: 'Level 3', detail: 'Snake there and back', bpm: 90, every: 0 }],
       callout: null,
       pass: 'Three runs in a row with no stops and no wrong notes.',
@@ -967,6 +979,9 @@ const STAGES = (function (G) {
     pos34: {
       title: 'Whole-neck snake',
       how: ['One note per click. <b>Up</b> = low E string to high e; <b>down</b> = back. Level 1: position 4 up and down (open position, starts on the open low E), then position 3 up and down (starts on D, low E fret 10). Use the tabs on the diagram below.', 'Level 2, snake up the whole neck: 4 <b>up</b> (open low E → high e fret 3) → high e fret 5 → 5 <b>down</b> (to low E fret 3) → low E fret 5 → 1 <b>up</b> (to high e fret 8) → high e fret 10 → 2 <b>down</b> (to low E fret 7) → low E fret 10 → 3 <b>up</b> (to high e fret 13).', 'Level 3: the Level 2 snake, then all the way back: 3 <b>down</b> (to low E fret 10) → low E fret 7 → 2 <b>up</b> (to high e fret 10) → high e fret 8 → 1 <b>down</b> (to low E fret 5) → low E fret 3 → 5 <b>up</b> (to high e fret 5) → high e fret 3 → 4 <b>down</b> (to the open low E).'],
+      route: (lvl) => lvl === 0 ? route(posRun(4, 'up'), posRun(4, 'down'), posRun(3, 'up'), posRun(3, 'down'))
+        : lvl === 1 ? route(posRun(4, 'up'), posRun(5, 'down'), posRun(1, 'up'), posRun(2, 'down'), posRun(3, 'up'))
+          : route(posRun(4, 'up'), posRun(5, 'down'), posRun(1, 'up'), posRun(2, 'down'), posRun(3, 'up'), posRun(3, 'down'), posRun(2, 'up'), posRun(1, 'down'), posRun(5, 'up'), posRun(4, 'down')),
       levels: [{ label: 'Level 1', detail: 'Positions 4 and 3 on their own', bpm: 60, every: 0 }, { label: 'Level 2', detail: 'Snake up through all five', bpm: 70, every: 0 }, { label: 'Level 3', detail: 'Snake up and back down', bpm: 90, every: 0 }],
       callout: null,
       pass: 'Three runs in a row with no stops and no wrong notes.',

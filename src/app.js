@@ -204,6 +204,47 @@
     }
     return el('div', { class: 'fb-wrap' }, root);
   }
+  /* ---------- animated route: the yellow dot is the note to play now, its number is the finger ---------- */
+  function pathPlayer(steps) {
+    const fs = steps.map((x) => x.f);
+    const lo = Math.max(0, Math.min(...fs) - 1), hi = Math.max(lo + 6, Math.max(...fs) + 1);
+    // faint dots = the shape you're in right now (same group as the current note)
+    const ghostCache = {};
+    const ghostsFor = (grp) => ghostCache[grp] || (ghostCache[grp] = (() => { const seen = new Set(); return steps.filter((x) => x.grp === grp).filter((x) => { const k = x.s + ':' + x.f; if (seen.has(k)) return false; seen.add(k); return true; }).map((x) => ({ s: x.s, f: x.f, kind: 'ghost', text: '' })); })());
+    const boardBox = el('div'), cap = el('div', { class: 'path-cap' });
+    const wrap = el('div', { class: 'path' }, boardBox, cap,
+      el('p', { class: 'muted small', html: 'Follow the <b style="color:var(--target)">yellow dot</b>: it’s the note to play now. Its number is the finger: <b>1</b> index, <b>2</b> middle, <b>3</b> ring, <b>4</b> pinky, <b>0</b> open string. With the metronome off it shows you the route; start the metronome and it moves one note per click.' }));
+    let i = 0, synced = false, timer = null;
+    function draw() {
+      const st = steps[i], prev = steps[i - 1];
+      boardBox.innerHTML = '';
+      const dots = [...ghostsFor(st.grp)];
+      if (prev) dots.push({ s: prev.s, f: prev.f, kind: 'note', text: '' });
+      dots.push({ s: st.s, f: st.f, kind: 'target', text: st.finger == null ? '' : String(st.finger) });
+      boardBox.append(fretboard({ lo, hi, dots }, { label: 'Animated route' }));
+      cap.innerHTML = '';
+      cap.append(el('b', { text: st.seg || '' }), el('span', { text: ` · ${G.STRING_NAMES[st.s]} string, ${st.f === 0 ? 'open' : 'fret ' + st.f}` + (st.finger ? ` · finger ${st.finger}` : '') }), el('span', { class: 'muted', text: `   ${i + 1} / ${steps.length}` }));
+    }
+    function adv() { i = (i + 1) % steps.length; draw(); }
+    function loop() {
+      if (!wrap.isConnected) return; // page changed: stop quietly
+      if (!synced) adv();
+      timer = setTimeout(loop, 60000 / Math.max(30, Metro.bpm));
+    }
+    draw();
+    timer = setTimeout(loop, 900);
+    return { el: wrap, beat(b) { if (!synced || b === 0) { synced = true; i = -1; } adv(); }, unsync() { synced = false; } };
+  }
+  function warmupSteps() {
+    const out = [];
+    for (let r = 1; r <= 5; r++) {
+      const seg = `Round ${r} · frets ${r}–${r + 3}`;
+      for (let s = 0; s < 6; s++) for (let k = 0; k < 4; k++) out.push({ s, f: r + k, finger: k + 1, grp: r, seg: seg + ' · going up' });
+      for (let s = 5; s >= 0; s--) for (let k = 3; k >= 0; k--) out.push({ s, f: r + k, finger: k + 1, grp: r, seg: seg + ' · coming back' });
+    }
+    return out.filter((x, i, a) => i === 0 || x.s !== a[i - 1].s || x.f !== a[i - 1].f);
+  }
+
   const LEGEND = () => el('div', { class: 'legend' },
     el('span', null, el('i', { style: 'background:var(--brass)' }), '1 (root)'),
     el('span', null, el('i', { style: 'background:#F6F1E6;border:1.5px solid #1A1E1C' }), '3 → 4 white keystone'),
@@ -328,13 +369,15 @@
       const beats = el('div', { class: 'beats' }, ...[0, 1, 2, 3].map((i) => el('i', { class: i === 0 ? 'accent' : '' })));
       const startBtn = el('button', { class: 'btn primary', onclick: () => { if (Metro.on) Metro.stop(); else { call = null; sinceCall = 0; Metro.start(Metro.bpm); } } });
       const setBpm = (d) => { Metro.bpm = Math.max(30, Math.min(220, Metro.bpm + d)); bpmEl.textContent = Metro.bpm; };
-      const paintBtn = () => { startBtn.textContent = Metro.on ? 'Stop' : 'Start metronome'; };
+      let player = null;
+      const paintBtn = () => { startBtn.textContent = Metro.on ? 'Stop' : 'Start metronome'; if (player && !Metro.on) player.unsync(); };
       Metro.onState = paintBtn; paintBtn();
       box.append(el('div', { class: 'metro' }, startBtn,
         el('div', { class: 'row', style: 'gap:6px' }, el('button', { class: 'btn', 'aria-label': 'Slower', onclick: () => setBpm(-5) }, '−'), bpmEl, el('span', { class: 'muted', text: 'bpm' }), el('button', { class: 'btn', 'aria-label': 'Faster', onclick: () => setBpm(5) }, '+')),
         beats));
       // callout
       const hasCall = D.callout && L.every > 0 && D.callout(lvl, {}) !== null;
+      if (!hasCall && D.route) { player = pathPlayer(D.route(lvl)); box.append(el('div', { class: 'stack', style: 'gap:6px' }, el('h3', { text: `Watch the route · ${L.label}` }), player.el)); }
       const cBig = el('div', { class: 'big', text: '—' }), cSmall = el('div', { class: 'where', text: 'Start the metronome to get your first call' }), cAns = el('div', { class: 'ans' }), cBoard = el('div', { class: 'call-board' });
       if (hasCall) box.append(el('div', { class: 'callout' }, el('div', { class: 'call-head' }, cBig, cSmall), cBoard, cAns));
       const showBoard = (withAnswer) => {
@@ -345,6 +388,7 @@
       };
       Metro.onBeat = (b) => {
         beats.querySelectorAll('i').forEach((x, i) => x.classList.toggle('on', i === b % 4));
+        if (player) player.beat(b);
         if (!hasCall) return;
         if (call === null || sinceCall >= L.every) { call = D.callout(lvl, calloutState); sinceCall = 0; cBig.textContent = call.big; cSmall.textContent = call.where || ''; cAns.textContent = ''; showBoard(false); }
         if (call.answer && sinceCall === Math.floor(L.every / 2)) { cAns.textContent = 'Check: ' + call.answer; showBoard(true); }
@@ -602,9 +646,10 @@
     const b = B[SES.i];
     const card = el('div', { class: 'card' });
     if (b.kind === 'warm') {
+      const player = pathPlayer(warmupSteps());
       card.append(el('div', { class: 'stack' }, el('h2', { text: 'Wake the fingers up' }),
-        el('ol', { class: 'how' }, el('li', null, 'Low E string, frets 1-2-3-4, one finger per fret. Then the same on every string up to high e, and back down.'), el('li', null, 'One note per click. Keep each note clean and even.'), el('li', null, 'Then move the pattern up one fret (2-3-4-5) and repeat.')),
-        metroOnly(60)));
+        el('ol', { class: 'how' }, el('li', null, 'One finger per fret: four frets, four fingers, on every string from low E to high e and back.'), el('li', null, 'One note per click. Keep each note clean and even.'), el('li', null, 'Each round moves the whole pattern one fret higher.')),
+        metroOnly(60, player), player.el));
     } else if (b.kind === 'recall') {
       card.append(quiz({ gens: b.gens, label: b.title, onAnswer: (ok) => { SES.asked++; if (ok) SES.right++; } }));
     } else if (b.kind === 'replay') {
@@ -622,13 +667,13 @@
     tickSession();
     sessionTimer = setInterval(tickSession, 250);
   }
-  function metroOnly(bpm) {
+  function metroOnly(bpm, player) {
     Metro.bpm = bpm;
     const bpmEl = el('span', { class: 'bpm', text: bpm });
     const beats = el('div', { class: 'beats' }, ...[0, 1, 2, 3].map((i) => el('i', { class: i === 0 ? 'accent' : '' })));
     const btn = el('button', { class: 'btn primary', onclick: () => Metro.on ? Metro.stop() : Metro.start(Metro.bpm) });
-    Metro.onState = () => { btn.textContent = Metro.on ? 'Stop' : 'Start metronome'; }; Metro.onState();
-    Metro.onBeat = (b) => beats.querySelectorAll('i').forEach((x, i) => x.classList.toggle('on', i === b % 4));
+    Metro.onState = () => { btn.textContent = Metro.on ? 'Stop' : 'Start metronome'; if (player && !Metro.on) player.unsync(); }; Metro.onState();
+    Metro.onBeat = (b) => { beats.querySelectorAll('i').forEach((x, i) => x.classList.toggle('on', i === b % 4)); if (player) player.beat(b); };
     const set = (d) => { Metro.bpm = Math.max(30, Math.min(220, Metro.bpm + d)); bpmEl.textContent = Metro.bpm; };
     return el('div', { class: 'metro' }, btn, el('div', { class: 'row', style: 'gap:6px' }, el('button', { class: 'btn', onclick: () => set(-5) }, '−'), bpmEl, el('span', { class: 'muted', text: 'bpm' }), el('button', { class: 'btn', onclick: () => set(5) }, '+')), beats);
   }
