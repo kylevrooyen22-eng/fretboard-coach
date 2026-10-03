@@ -263,12 +263,18 @@
         el('button', { class: 'btn', onclick: () => { stopPreview(); i = 0; fresh = true; draw(); } }, '↺ Start over'));
     }
     draw();
-    return {
-      el: wrap,
+    const api = {
+      el: wrap, onNewGroup: null,
       // first click after a fresh start plays note 1; after that every click moves on one note
-      beat() { if (previewing) stopPreview(); if (fresh) { fresh = false; draw(); } else go(i + 1); },
+      beat() {
+        if (previewing) stopPreview();
+        if (fresh) { fresh = false; draw(); return; }
+        const before = steps[i].grp; go(i + 1);
+        if (steps[i].grp !== before && api.onNewGroup) api.onNewGroup();
+      },
       state() { if (Metro.on) stopPreview(); paintCtrls(); },
     };
+    return api;
   }
   function warmupSteps() {
     const out = [];
@@ -684,7 +690,7 @@
       const player = pathPlayer(warmupSteps());
       card.append(el('div', { class: 'stack' }, el('h2', { text: 'Wake the fingers up' }),
         el('ol', { class: 'how' }, el('li', null, 'One finger per fret: four frets, four fingers, on every string from low E to high e and back.'), el('li', null, 'One note per click. Keep each note clean and even.'), el('li', null, 'Each round moves the whole pattern one fret higher.')),
-        metroOnly(60, player), player.el));
+        metroOnly(60, player, { speedUp: true }), player.el));
     } else if (b.kind === 'recall') {
       card.append(quiz({ gens: b.gens, label: b.title, onAnswer: (ok) => { SES.asked++; if (ok) SES.right++; } }));
     } else if (b.kind === 'replay') {
@@ -702,7 +708,7 @@
     tickSession();
     sessionTimer = setInterval(tickSession, 250);
   }
-  function metroOnly(bpm, player) {
+  function metroOnly(bpm, player, opts = {}) {
     Metro.bpm = bpm;
     const bpmEl = el('span', { class: 'bpm', text: bpm });
     const beats = el('div', { class: 'beats' }, ...[0, 1, 2, 3].map((i) => el('i', { class: i === 0 ? 'accent' : '' })));
@@ -710,7 +716,18 @@
     Metro.onState = () => { btn.textContent = Metro.label(); if (player) player.state(); }; Metro.onState();
     Metro.onBeat = (b) => { beats.querySelectorAll('i').forEach((x, i) => x.classList.toggle('on', i === b % 4)); if (player) player.beat(); };
     const set = (d) => { Metro.bpm = Math.max(30, Math.min(220, Metro.bpm + d)); bpmEl.textContent = Metro.bpm; };
-    return el('div', { class: 'metro' }, btn, el('div', { class: 'row', style: 'gap:6px' }, el('button', { class: 'btn', onclick: () => set(-5) }, '−'), bpmEl, el('span', { class: 'muted', text: 'bpm' }), el('button', { class: 'btn', onclick: () => set(5) }, '+')), beats);
+    let speedBtn = null;
+    if (opts.speedUp && player) {
+      const paintSpeed = () => { speedBtn.setAttribute('aria-pressed', P.warmSpeedUp ? 'true' : 'false'); speedBtn.textContent = P.warmSpeedUp ? '✓ Speed up: +5 bpm each round' : 'Speed up: +5 bpm each round'; };
+      speedBtn = el('button', { class: 'btn toggle', title: 'Each time you finish a round (up to high e and back), the metronome gets 5 bpm faster', onclick: () => { P.warmSpeedUp = !P.warmSpeedUp; commit(); paintSpeed(); } });
+      paintSpeed();
+      player.onNewGroup = () => {
+        if (!P.warmSpeedUp || !Metro.on) return;
+        set(5);
+        bpmEl.classList.remove('flash'); void bpmEl.offsetWidth; bpmEl.classList.add('flash');
+      };
+    }
+    return el('div', { class: 'metro' }, btn, el('div', { class: 'row', style: 'gap:6px' }, el('button', { class: 'btn', onclick: () => set(-5) }, '−'), bpmEl, el('span', { class: 'muted', text: 'bpm' }), el('button', { class: 'btn', onclick: () => set(5) }, '+')), beats, speedBtn);
   }
   function tickSession() {
     if (!SES) return;

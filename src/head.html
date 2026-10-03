@@ -208,6 +208,10 @@ ol.how li::marker { color: var(--tint); font-weight: 700; }
 .path { display: flex; flex-direction: column; gap: 6px; }
 .path-cap { font: 600 15px/1.3 var(--f-round); font-variant-numeric: tabular-nums; }
 .path-cap .muted { font-weight: 400; margin-left: 8px; }
+.metro .btn.toggle { width: auto; height: auto; padding: 8px 14px; border-radius: 999px; font-size: .9rem; margin-left: auto; }
+.btn.toggle[aria-pressed="true"] { background: var(--tint); color: #fff; }
+@keyframes bpmflash { 0% { color: var(--target); transform: scale(1.25); } 100% { color: inherit; transform: scale(1); } }
+.bpm.flash { display: inline-block; animation: bpmflash .7s ease-out; }
 .path-ctrls { display: flex; flex-wrap: wrap; gap: 8px; }
 .path-ctrls .btn[disabled] { opacity: .45; cursor: default; }
 
