@@ -1956,10 +1956,30 @@ const LESSONS = {
 
   /* ---------- audio: metronome + chime ---------- */
   const Metro = {
-    ctx: null, bpm: 60, on: false, beat: 0, next: 0, timer: null, onBeat: null, onState: null,
+    ctx: null, bpm: 60, on: false, counting: 0, beat: 0, next: 0, timer: null, cd: null, onBeat: null, onState: null,
     ensure() { if (!this.ctx) { const AC = window.AudioContext || window.webkitAudioContext; if (!AC) return false; this.ctx = new AC(); } if (this.ctx.state === 'suspended') this.ctx.resume(); return true; },
-    start(bpm) { if (!this.ensure()) return; if (bpm) this.bpm = bpm; this.on = true; this.beat = 0; this.next = this.ctx.currentTime + 0.1; clearInterval(this.timer); this.timer = setInterval(() => this.tick(), 25); this.onState && this.onState(); },
-    stop() { this.on = false; clearInterval(this.timer); this.onState && this.onState(); },
+    // 3-second count-in (soft beep each second) so you can get your hands back on the guitar
+    start(bpm) {
+      if (!this.ensure()) return;
+      if (bpm) this.bpm = bpm;
+      clearInterval(this.timer); clearTimeout(this.cd);
+      this.on = true; this.counting = 3; this.countBeep(); this.onState && this.onState();
+      const down = () => {
+        if (!this.on) return;
+        this.counting--;
+        if (this.counting > 0) { this.countBeep(); this.onState && this.onState(); this.cd = setTimeout(down, 1000); return; }
+        this.beat = 0; this.next = this.ctx.currentTime + 0.05; this.timer = setInterval(() => this.tick(), 25); this.onState && this.onState();
+      };
+      this.cd = setTimeout(down, 1000);
+    },
+    stop() { this.on = false; this.counting = 0; clearTimeout(this.cd); clearInterval(this.timer); this.onState && this.onState(); },
+    label() { return this.counting ? `Starting in ${this.counting}…` : this.on ? 'Stop' : 'Start metronome'; },
+    countBeep() {
+      const ctx = this.ctx, t = ctx.currentTime + 0.01, o = ctx.createOscillator(), g = ctx.createGain();
+      o.type = 'sine'; o.frequency.value = 660;
+      g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(0.18, t + 0.01); g.gain.exponentialRampToValueAtTime(0.0001, t + 0.18);
+      o.connect(g).connect(ctx.destination); o.start(t); o.stop(t + 0.2);
+    },
     tick() {
       const ctx = this.ctx;
       while (this.next < ctx.currentTime + 0.12) {
@@ -2094,7 +2114,7 @@ const LESSONS = {
       ctrls.innerHTML = '';
       const running = Metro.on;
       ctrls.append(
-        el('button', { class: 'btn', disabled: running, onclick: () => { if (previewing) stopPreview(); else { previewing = true; timer = setTimeout(tickPreview, 300); } paintCtrls(); } }, running ? 'Following the metronome' : previewing ? '❚❚ Pause preview' : '▶ Preview'),
+        el('button', { class: 'btn', disabled: running, onclick: () => { if (previewing) stopPreview(); else { previewing = true; timer = setTimeout(tickPreview, 300); } paintCtrls(); } }, running ? (Metro.counting ? 'Get ready…' : 'Following the metronome') : previewing ? '❚❚ Pause preview' : '▶ Preview'),
         el('button', { class: 'btn', 'aria-label': 'Previous note', disabled: running, onclick: () => { stopPreview(); go(i - 1); } }, '‹ Back'),
         el('button', { class: 'btn', 'aria-label': 'Next note', disabled: running, onclick: () => { stopPreview(); go(i + 1); } }, 'Next ›'),
         el('button', { class: 'btn', onclick: () => { stopPreview(); i = 0; fresh = true; draw(); } }, '↺ Start over'));
@@ -2242,7 +2262,7 @@ const LESSONS = {
       const startBtn = el('button', { class: 'btn primary', onclick: () => { if (Metro.on) Metro.stop(); else { call = null; sinceCall = 0; Metro.start(Metro.bpm); } } });
       const setBpm = (d) => { Metro.bpm = Math.max(30, Math.min(220, Metro.bpm + d)); bpmEl.textContent = Metro.bpm; };
       let player = null;
-      const paintBtn = () => { startBtn.textContent = Metro.on ? 'Stop' : 'Start metronome'; if (player) player.state(); };
+      const paintBtn = () => { startBtn.textContent = Metro.label(); if (player) player.state(); };
       Metro.onState = paintBtn; paintBtn();
       box.append(el('div', { class: 'metro' }, startBtn,
         el('div', { class: 'row', style: 'gap:6px' }, el('button', { class: 'btn', 'aria-label': 'Slower', onclick: () => setBpm(-5) }, '−'), bpmEl, el('span', { class: 'muted', text: 'bpm' }), el('button', { class: 'btn', 'aria-label': 'Faster', onclick: () => setBpm(5) }, '+')),
@@ -2544,7 +2564,7 @@ const LESSONS = {
     const bpmEl = el('span', { class: 'bpm', text: bpm });
     const beats = el('div', { class: 'beats' }, ...[0, 1, 2, 3].map((i) => el('i', { class: i === 0 ? 'accent' : '' })));
     const btn = el('button', { class: 'btn primary', onclick: () => Metro.on ? Metro.stop() : Metro.start(Metro.bpm) });
-    Metro.onState = () => { btn.textContent = Metro.on ? 'Stop' : 'Start metronome'; if (player) player.state(); }; Metro.onState();
+    Metro.onState = () => { btn.textContent = Metro.label(); if (player) player.state(); }; Metro.onState();
     Metro.onBeat = (b) => { beats.querySelectorAll('i').forEach((x, i) => x.classList.toggle('on', i === b % 4)); if (player) player.beat(); };
     const set = (d) => { Metro.bpm = Math.max(30, Math.min(220, Metro.bpm + d)); bpmEl.textContent = Metro.bpm; };
     return el('div', { class: 'metro' }, btn, el('div', { class: 'row', style: 'gap:6px' }, el('button', { class: 'btn', onclick: () => set(-5) }, '−'), bpmEl, el('span', { class: 'muted', text: 'bpm' }), el('button', { class: 'btn', onclick: () => set(5) }, '+')), beats);
