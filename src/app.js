@@ -388,6 +388,60 @@
   }
 
   /* ---------- Play drill panel ---------- */
+  /* ---------- Know it: stepped quiz (no locks; nudges you up after 8 of your last 10) ---------- */
+  const knowGen = (st) => (st.knowSteps ? st.knowSteps[Math.min(sp(st.id).knowStep || 0, st.knowSteps.length - 1)].gen : st.know);
+  function knowPanel(stage, { onAnswer, label } = {}) {
+    if (!stage.knowSteps) return quiz({ gens: [stage.know], onAnswer, label });
+    const p = sp(stage.id);
+    p.knowStep = Math.min(p.knowStep || 0, stage.knowSteps.length - 1);
+    p.knowHist = p.knowHist || {};
+    p.cheatHidden = p.cheatHidden || {};
+    const box = el('div', { class: 'stack' });
+    const head = el('div', { class: 'stack', style: 'gap:10px' }), cheatBox = el('div'), quizBox = el('div');
+    box.append(head, cheatBox, quizBox);
+    const last10 = (k) => (p.knowHist[k] || []).slice(-10);
+    const score = (k) => last10(k).filter(Boolean).length;
+    function paintHead() {
+      head.innerHTML = '';
+      head.append(el('div', { class: 'levels' }, ...stage.knowSteps.map((x, k) => {
+        const h = last10(k);
+        return el('button', { class: 'level', 'aria-pressed': k === p.knowStep ? 'true' : 'false', onclick: () => { if (k === p.knowStep) return; p.knowStep = k; commit(); paintAll(); } },
+          el('span', { class: 'lv' }, el('span', { text: x.label }), h.length ? el('span', { class: score(k) >= 8 && h.length >= 10 ? 'done' : '', text: `${score(k)}/${h.length} recent` }) : el('span', { text: 'not started' })),
+          el('span', { text: x.detail }));
+      })));
+      const k = p.knowStep;
+      if (k < stage.knowSteps.length - 1 && last10(k).length >= 10 && score(k) >= 8) {
+        head.append(el('div', { class: 'nudge' }, el('span', null, el('b', { text: `${score(k)} of your last 10 right. ` }), `You’re ready for ${stage.knowSteps[k + 1].label}.`),
+          el('button', { class: 'btn primary', onclick: () => { p.knowStep = k + 1; commit(); paintAll(); } }, `Go to ${stage.knowSteps[k + 1].label} →`)));
+      }
+    }
+    function paintCheat() {
+      cheatBox.innerHTML = '';
+      const st = stage.knowSteps[p.knowStep];
+      const det = el('details', { class: 'cheat' });
+      det.open = !p.cheatHidden[p.knowStep];
+      det.append(el('summary', { text: `Cheat card · ${st.label}` }));
+      det.append(el('table', { class: 'mini' }, el('tbody', null, ...st.rows.map((r) => el('tr', null, ...r.map((c, j) => el(j ? 'td' : 'th', { text: c })))))));
+      (st.boards || []).forEach((b) => { det.append(el('h4', { class: 'cheat-h', text: b.label })); det.append(fretboard(b.spec, { label: b.label })); });
+      if (st.boards) det.append(el('p', { class: 'muted small', text: 'Root (R) is A on the low E string, fret 5. Every interval is counted up from it.' }));
+      det.addEventListener('toggle', () => { p.cheatHidden[p.knowStep] = !det.open; commit(); });
+      cheatBox.append(det);
+    }
+    function paintQuiz() {
+      quizBox.innerHTML = '';
+      const k = p.knowStep;
+      quizBox.append(quiz({ gens: [stage.knowSteps[k].gen], label: label || `Know it · ${stage.knowSteps[k].label}`, onAnswer: (ok) => {
+        (p.knowHist[k] = p.knowHist[k] || []).push(ok ? 1 : 0);
+        p.knowHist[k] = p.knowHist[k].slice(-10);
+        commit(); paintHead();
+        onAnswer && onAnswer(ok);
+      } }));
+    }
+    function paintAll() { paintHead(); paintCheat(); paintQuiz(); }
+    paintAll();
+    return box;
+  }
+
   function playPanel(stage, { session } = {}) {
     const p = sp(stage.id);
     const D = stage.play;
@@ -640,7 +694,7 @@
       st.figures.forEach((f, i) => { if (!placed.has(i)) body.append(figure(f, st)); });
       body.append(el('div', { class: 'card recap' }, el('span', { class: 'eyebrow', text: 'Quick recap' }), el('ul', { class: 'points' }, ...st.learn.map((t) => el('li', { html: t })))));
     } else if (view.tab === 'know') {
-      body.append(el('div', { class: 'card' }, quiz({ gens: [st.know], onAnswer: () => { sp(st.id).quiz++; Store.save(); } })));
+      body.append(el('div', { class: 'card' }, knowPanel(st, { onAnswer: () => { sp(st.id).quiz++; Store.save(); } })));
     } else if (view.tab === 'play') body.append(el('div', { class: 'card' }, playPanel(st)));
     else if (view.tab === 'use') body.append(el('div', { class: 'card' }, usePanel(st)));
     else body.append(testPanel(st));
@@ -657,10 +711,10 @@
     const blocks = [];
     if (!pool.length) {
       blocks.push({ kind: 'warm', title: 'Warm-up: fingers', mins: 5 });
-      blocks.push({ kind: 'recall', title: 'Warm-up: recall', mins: 5, gens: [st.know] });
+      blocks.push({ kind: 'recall', title: 'Warm-up: recall', mins: 5, gens: [knowGen(st)] });
     } else {
       const recent = pool.slice(-5);
-      blocks.push({ kind: 'recall', title: 'Review: recall', mins: 5, gens: recent.map((x) => { const g = () => x.know(); g.src = x.title; return g; }) });
+      blocks.push({ kind: 'recall', title: 'Review: recall', mins: 5, gens: recent.map((x) => { const g = () => knowGen(x)(); g.src = x.title; return g; }) });
       const rp = recent.filter((x) => x.play)[Math.floor(Math.random() * recent.length)] || recent[recent.length - 1];
       blocks.push({ kind: 'replay', title: 'Review: play', mins: 5, stage: rp });
     }
@@ -696,7 +750,7 @@
     } else if (b.kind === 'replay') {
       card.append(el('p', { class: 'muted', style: 'margin-bottom:12px', text: `From stage ${b.stage.n}: ${b.stage.title}. Play it at the highest level you’ve nailed.` }), playPanel(b.stage, { session: true }));
     } else if (b.kind === 'know') {
-      card.append(quiz({ gens: [st.know], onAnswer: (ok) => { SES.asked++; if (ok) SES.right++; sp(st.id).quiz++; } }));
+      card.append(knowPanel(st, { onAnswer: (ok) => { SES.asked++; if (ok) SES.right++; sp(st.id).quiz++; } }));
     } else if (b.kind === 'play') card.append(playPanel(st, { session: true }));
     else if (b.kind === 'use') card.append(usePanel(st, { session: true }));
     else if (b.kind === 'done') {

@@ -55,28 +55,83 @@ const STAGES = (function (G) {
 
   /* ---------- Stage 2: intervals ---------- */
   const CROSS_RULE = { '1,-2': 'next string up, two frets lower = minor 3rd', '1,-1': 'next string up, one fret lower = major 3rd', '1,0': 'next string up, same fret = perfect 4th', '1,1': 'next string up, one fret higher = tritone', '1,2': 'next string up, two frets higher = perfect 5th', '2,2': 'two strings up, two frets higher = octave', '2,0': 'two strings up, same fret = minor 7th', '2,-1': 'two strings up, one fret lower = major 6th' };
-  function q2() {
-    const t = weighted([[45, 'same'], [30, 'cross'], [25, 'count']]);
+  // Know it grows in steps: the big four first, then the 4th + across-string shapes, then all 12
+  const IV_POOL = { 1: [3, 4, 7, 12], 2: [3, 4, 5, 7, 12], 3: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12] };
+  const IV_CROSS = { 3: [1, -2], 4: [1, -1], 5: [1, 0], 7: [1, 2], 12: [2, 2], 6: [1, 1], 10: [2, 0], 9: [2, -1] };
+  const IV_CROSS_POOL = { 1: [], 2: [3, 4, 5, 7, 12], 3: [3, 4, 5, 7, 12, 6, 10, 9] };
+  const ivName = (n) => G.INTERVALS[n];
+  const ivChoices = (n, step) => { const pool = IV_POOL[step].map((x) => ({ label: ivName(x), value: x })); return pool.length <= 4 ? pool : four({ label: ivName(n), value: n }, pool); };
+  const spot = (s, f) => `${G.PC_SHORT[G.pcAt(s, f)]} on the ${G.STRING_NAMES[s]} string, fret ${f}`;
+  function qInterval(step) {
+    const cross = IV_CROSS_POOL[step];
+    const t = step === 1 ? weighted([[40, 'name'], [35, 'click'], [25, 'count']])
+      : weighted([[step === 2 ? 25 : 35, 'name'], [35, 'xname'], [step === 2 ? 25 : 15, 'xclick'], [15, 'count']]);
+    const s1 = pick([0, 1]);
+    if (t === 'xname' || t === 'xclick') {
+      const n = pick(cross); const [ds, df] = IV_CROSS[n];
+      const f1 = 3 + rnd(5), s2 = s1 + ds, f2 = f1 + df;
+      const rule = CROSS_RULE[ds + ',' + df];
+      const root = { s: s1, f: f1, kind: 'root', text: 'R' };
+      if (t === 'xclick') {
+        return {
+          type: 'click', prompt: `The root is <b>${spot(s1, f1)}</b>. Click its <b>${ivName(n)}</b> on the <b>${G.STRING_NAMES[s2]}</b> string, using the across-string shape.`,
+          board: { lo: 0, hi: 12, dots: [root] }, clickString: s2,
+          isCorrect: (cs, cf) => cs === s2 && G.midiAt(cs, cf) - G.midiAt(s1, f1) === n,
+          solution: [{ s: s2, f: f2, kind: 'right', text: G.INT_SHORT[n] }],
+          explain: `Shape: ${rule}. That's fret ${f2}.`,
+        };
+      }
+      return {
+        type: 'choice', prompt: `The orange note is the root. What's the interval up to the yellow note on the <b>${G.STRING_NAMES[s2]}</b> string?`,
+        board: { lo: 0, hi: 12, dots: [root, { s: s2, f: f2, kind: 'target', text: '?' }] },
+        choices: ivChoices(n, step), answer: n,
+        explain: `Shape: ${rule}. Across strings you don't count frets, you recognise the shape.`,
+      };
+    }
+    const n = pick(IV_POOL[step]);
+    const f1 = 1 + rnd(5), f2 = f1 + n;
+    const root = { s: s1, f: f1, kind: 'root', text: 'R' };
+    if (t === 'click') {
+      return {
+        type: 'click', prompt: `The root is <b>${spot(s1, f1)}</b>. Click its <b>${ivName(n)}</b>, higher up the same string.`,
+        board: { lo: Math.max(0, f1 - 1), hi: f1 + 13, dots: [root] }, clickString: s1,
+        isCorrect: (cs, cf) => cs === s1 && cf - f1 === n,
+        solution: [{ s: s1, f: f2, kind: 'right', text: G.INT_SHORT[n] }],
+        explain: `A ${ivName(n)} is ${n} fret${n > 1 ? 's' : ''} up: fret ${f1} + ${n} = fret ${f2}.`,
+      };
+    }
     if (t === 'count') {
-      const n = 1 + rnd(12);
-      const opts = four({ label: String(n), value: n }, [...Array(12)].map((_, i) => ({ label: String(i + 1), value: i + 1 })));
-      return { type: 'choice', prompt: `How many frets wide is a <b>${G.INTERVALS[n]}</b>?`, choices: opts, answer: n, explain: `${G.INTERVALS[n]} = ${n} fret${n > 1 ? 's' : ''} (semitones).` };
+      const nums = IV_POOL[step].map((x) => ({ label: String(x), value: x }));
+      return {
+        type: 'choice', prompt: `The root is <b>${spot(s1, f1)}</b>. How many frets up the same string is its <b>${ivName(n)}</b>?`,
+        board: { lo: Math.max(0, f1 - 1), hi: f1 + 13, dots: [root] },
+        choices: nums.length <= 4 ? nums : four({ label: String(n), value: n }, nums), answer: n,
+        explain: `A ${ivName(n)} is ${n} fret${n > 1 ? 's' : ''} up, so it's at fret ${f2}.`,
+      };
     }
-    let s1, f1, s2, f2, crossRule = '';
-    if (t === 'same') { s1 = pick([0, 1]); f1 = 1 + rnd(5); const n = 1 + rnd(12); s2 = s1; f2 = f1 + n; }
-    else {
-      const shapes = [[1, -2], [1, -1], [1, 0], [1, 2], [2, 2], [1, 1], [2, 0], [2, -1]]; // m3, M3, P4, P5, octave, tritone, m7, M6
-      const [ds, df] = pick(shapes); s1 = pick([0, 1]); f1 = 3 + rnd(5); s2 = s1 + ds; f2 = f1 + df; crossRule = CROSS_RULE[ds + ',' + df];
-    }
-    const n = G.midiAt(s2, f2) - G.midiAt(s1, f1);
-    const pool = G.INTERVALS.slice(1).map((label, i) => ({ label, value: i + 1 }));
     return {
-      type: 'choice', prompt: 'The orange note is the root. What is the interval up to the other note?',
-      board: { lo: 0, hi: 17, dots: [{ s: s1, f: f1, kind: 'root', text: 'R' }, { s: s2, f: f2, kind: 'target', text: '?' }] },
-      choices: four({ label: G.INTERVALS[n], value: n }, pool), answer: n,
-      explain: `${n} semitone${n > 1 ? 's' : ''} up = ${G.INTERVALS[n]}.` + (t === 'cross' ? ' Shape: ' + crossRule + '.' : ''),
+      type: 'choice', prompt: 'The orange note is the root. What\'s the interval up to the yellow note on the same string?',
+      board: { lo: Math.max(0, f1 - 1), hi: f1 + 13, dots: [root, { s: s1, f: f2, kind: 'target', text: '?' }] },
+      choices: ivChoices(n, step), answer: n,
+      explain: `Count the frets from the root: fret ${f1} to fret ${f2} is ${n} fret${n > 1 ? 's' : ''} = ${ivName(n)}.`,
     };
   }
+  const q2 = () => qInterval(3);
+  // Cheat-card diagrams: root A on low E fret 5, with the step's intervals
+  const ivCheatBoards = (step) => {
+    const R = { s: 0, f: 5, kind: 'root', text: 'R' };
+    const out = [{ label: 'Along one string', spec: { lo: 4, hi: 17, dots: [R, ...IV_POOL[step].map((n) => ({ s: 0, f: 5 + n, kind: 'note', text: G.INT_SHORT[n] }))] } }];
+    if (IV_CROSS_POOL[step].length) out.push({ label: 'Across strings', spec: { lo: 1, hi: 9, dots: [R, ...IV_CROSS_POOL[step].map((n) => ({ s: IV_CROSS[n][0], f: 5 + IV_CROSS[n][1], kind: 'note', text: G.INT_SHORT[n] }))] } });
+    return out;
+  };
+  const IV_STEPS = [
+    { label: 'Step 1', detail: 'The big four, on one string', gen: () => qInterval(1), boards: ivCheatBoards(1),
+      rows: [['Minor 3rd', '3 frets', 'sad, inside minor chords'], ['Major 3rd', '4 frets', 'happy, inside major chords'], ['Perfect 5th', '7 frets', 'strong, the power chord'], ['Octave', '12 frets', 'same note, higher']] },
+    { label: 'Step 2', detail: '+ the 4th, and across strings', gen: () => qInterval(2), boards: ivCheatBoards(2),
+      rows: [['Minor 3rd', '3 frets', 'next string: 2 frets lower'], ['Major 3rd', '4 frets', 'next string: 1 fret lower'], ['Perfect 4th', '5 frets', 'next string: same fret'], ['Perfect 5th', '7 frets', 'next string: 2 frets higher'], ['Octave', '12 frets', 'two strings up: 2 frets higher']] },
+    { label: 'Step 3', detail: 'All 12', gen: () => qInterval(3), boards: ivCheatBoards(3),
+      rows: G.INTERVALS.slice(1).map((nm, i) => [nm, `${i + 1} fret${i ? 's' : ''}`, { 6: 'next string: 1 fret higher', 10: 'two strings up: same fret', 9: 'two strings up: 1 fret lower', 3: 'next string: 2 frets lower', 4: 'next string: 1 fret lower', 5: 'next string: same fret', 7: 'next string: 2 frets higher', 12: 'two strings up: 2 frets higher' }[i + 1] || '']) },
+  ];
 
   /* ---------- Stage 3: major scale + numbers ---------- */
   function q3() {
@@ -457,7 +512,7 @@ const STAGES = (function (G) {
         'Across strings, from a root on low E or A: next string, same fret = perfect 4th; two frets higher = perfect 5th. Two strings up, two frets higher = octave.',
       ],
       figures: [{ title: 'Intervals from the root', fn: fig.intervals }],
-      know: q2,
+      know: q2, knowSteps: IV_STEPS,
       play: {
         title: 'Interval hop', how: ['Root = A, 5th fret low E.', 'When an interval appears, play the root, then the interval note. Let both ring and say the name.', 'Listen to how each one sounds. That sound is the point.'],
         levels: [{ label: 'Level 1', detail: 'm3, M3, P4, P5, octave on one string', bpm: 60, every: 8 }, { label: 'Level 2', detail: 'All 12 on one string', bpm: 60, every: 8 }, { label: 'Level 3', detail: 'Use cross-string shapes', bpm: 70, every: 6 }],
