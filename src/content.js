@@ -56,9 +56,9 @@ const STAGES = (function (G) {
   /* ---------- Stage 2: intervals ---------- */
   const CROSS_RULE = { '1,-2': 'next string up, two frets lower = minor 3rd', '1,-1': 'next string up, one fret lower = major 3rd', '1,0': 'next string up, same fret = perfect 4th', '1,1': 'next string up, one fret higher = tritone', '1,2': 'next string up, two frets higher = perfect 5th', '2,2': 'two strings up, two frets higher = octave', '2,0': 'two strings up, same fret = minor 7th', '2,-1': 'two strings up, one fret lower = major 6th' };
   // Know it grows in steps: the big four first, then the 4th + across-string shapes, then all 12
-  const IV_POOL = { 1: [3, 4, 7, 12], 2: [3, 4, 5, 7, 12], 3: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12] };
+  const IV_POOL = { 1: [3, 4, 7, 12], 2: [3, 4, 5, 7, 10, 12], 3: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12] };
   const IV_CROSS = { 3: [1, -2], 4: [1, -1], 5: [1, 0], 7: [1, 2], 12: [2, 2], 6: [1, 1], 10: [2, 0], 9: [2, -1] };
-  const IV_CROSS_POOL = { 1: [], 2: [3, 4, 5, 7, 12], 3: [3, 4, 5, 7, 12, 6, 10, 9] };
+  const IV_CROSS_POOL = { 1: [], 2: [3, 4, 5, 7, 10, 12], 3: [3, 4, 5, 7, 12, 6, 10, 9] };
   const ivName = (n) => G.INTERVALS[n];
   const ivChoices = (n, step) => { const pool = IV_POOL[step].map((x) => ({ label: ivName(x), value: x })); return pool.length <= 4 ? pool : four({ label: ivName(n), value: n }, pool); };
   const spot = (s, f) => `${G.PC_SHORT[G.pcAt(s, f)]} on the ${G.STRING_NAMES[s]} string, fret ${f}`;
@@ -116,7 +116,7 @@ const STAGES = (function (G) {
       explain: `Count the frets from the root: fret ${f1} to fret ${f2} is ${n} fret${n > 1 ? 's' : ''} = ${ivName(n)}.`,
     };
   }
-  const q2 = () => qInterval(2); // Ready test + reviews: what matters (big four, 4th, across strings)
+  const q2 = () => qInterval(2); // Ready test + reviews: what matters (big four, 4th, minor 7th, across strings)
   // Cheat-card diagrams: root A on low E fret 5, with the step's intervals
   const ivCheatBoards = (step) => {
     const R = { s: 0, f: 5, kind: 'root', text: 'R' };
@@ -127,8 +127,8 @@ const STAGES = (function (G) {
   const IV_STEPS = [
     { label: 'Step 1', detail: 'The big four, on one string', gen: () => qInterval(1), boards: ivCheatBoards(1),
       rows: [['Minor 3rd', '3 frets', 'sad, inside minor chords'], ['Major 3rd', '4 frets', 'happy, inside major chords'], ['Perfect 5th', '7 frets', 'strong, the power chord'], ['Octave', '12 frets', 'same note, higher']] },
-    { label: 'Step 2', detail: '+ the 4th, and across strings', gen: () => qInterval(2), boards: ivCheatBoards(2),
-      rows: [['Minor 3rd', '3 frets', 'next string: 2 frets lower'], ['Major 3rd', '4 frets', 'next string: 1 fret lower'], ['Perfect 4th', '5 frets', 'next string: same fret'], ['Perfect 5th', '7 frets', 'next string: 2 frets higher'], ['Octave', '12 frets', 'two strings up: 2 frets higher']] },
+    { label: 'Step 2', detail: '+ the 4th and minor 7th, across strings', gen: () => qInterval(2), boards: ivCheatBoards(2),
+      rows: [['Minor 3rd', '3 frets', 'next string: 2 frets lower'], ['Major 3rd', '4 frets', 'next string: 1 fret lower'], ['Perfect 4th', '5 frets', 'next string: same fret'], ['Perfect 5th', '7 frets', 'next string: 2 frets higher'], ['Minor 7th', '10 frets', 'two strings up: same fret'], ['Octave', '12 frets', 'two strings up: 2 frets higher']] },
     { label: 'Step 3 · optional', detail: 'All 12, for reference', optional: true, gen: () => qInterval(3), boards: ivCheatBoards(3),
       rows: G.INTERVALS.slice(1).map((nm, i) => [nm, `${i + 1} fret${i ? 's' : ''}`, { 6: 'next string: 1 fret higher', 10: 'two strings up: same fret', 9: 'two strings up: 1 fret lower', 3: 'next string: 2 frets lower', 4: 'next string: 1 fret lower', 5: 'next string: same fret', 7: 'next string: 2 frets higher', 12: 'two strings up: 2 frets higher' }[i + 1] || '']) },
   ];
@@ -479,8 +479,8 @@ const STAGES = (function (G) {
   const USE_INTERVALS = [
     { title: 'Strum power chords along with the track.', text: 'A power chord is just two notes: a root, plus its 5th (next string up, two frets higher). Strum only those two strings and mute the rest. Use the five below: they all fit the track. Change chord whenever it sounds right, e.g. A for a bar, then C, then G.',
       fig: { title: 'The five power chords', fn: () => POWER.map(([n, s, f]) => ({ label: n, caption: `The ${n} power chord: ${G.STRING_NAMES[s]} string fret ${f} (root) + ${G.STRING_NAMES[s + 1]} string fret ${f + 2} (its 5th).`, spec: { lo: 0, hi: 12, dots: [{ s, f, kind: 'root', text: 'R' }, { s: s + 1, f: f + 2, kind: 'note', text: '5' }], links: [[s, f, s + 1, f + 2]] } })) } },
-    { title: 'Make a melody that only moves in 3rds.', text: 'Stay on the <b>low E string</b> and use only <b>frets 5, 8, 12 and 15</b> (A, C, E, G). Play slowly and only move to a neighbouring fret in that list, up or down. Every move is a 3rd: say "minor 3rd" or "major 3rd" as you go.',
-      fig: { title: 'Your four notes', fn: () => [{ label: 'Low E string', caption: 'Fret 5 → 8 = minor 3rd · 8 → 12 = major 3rd · 12 → 15 = minor 3rd (and the same going back down).', spec: { lo: 4, hi: 16, dots: [5, 8, 12, 15].map((f) => ({ s: 0, f, kind: f === 5 ? 'root' : 'note', text: pcLabel(0, f) })) } }] } },
+    { title: 'Make a melody from A’s intervals.', text: 'Stay on the <b>low E string</b>. Your root is <b>A at fret 5</b>. Use only the root and these intervals above it: <b>minor 3rd</b> (fret 8, C), <b>5th</b> (fret 12, E) and <b>minor 7th</b> (fret 15, G). As you play each note, say what it is to A: "root… minor 3rd… fifth…". End every phrase back on the root.',
+      fig: { title: 'A and its intervals', fn: () => [{ label: 'Low E string', caption: 'Together these four notes make an A minor 7 chord (A C E G), which is why they sound good over an A minor track.', spec: { lo: 4, hi: 16, dots: [[5, 'R'], [8, 'm3'], [12, '5'], [15, 'm7']].map(([f, t]) => ({ s: 0, f, kind: f === 5 ? 'root' : 'note', text: t })) } }] } },
     { title: 'Small steps vs big jumps: hear the difference.', text: 'On the <b>A string</b> only, use the notes below (open, frets 3, 5, 7, 10, 12). Play one phrase moving only to the <b>next</b> note (small steps). Then play one using only <b>big jumps</b>: a 5th (7 frets, e.g. open → 7, 3 → 10, 5 → 12) or the octave (open → 12). Hear the difference: steps sound like singing, jumps sound bold.',
       fig: { title: 'Notes on the A string', fn: () => [{ label: 'A string', caption: 'Big jumps: open → 7 (A to E), 3 → 10 (C to G), 5 → 12 (D to A) are 5ths. Open → 12 is the octave.', spec: { lo: 0, hi: 13, dots: [0, 3, 5, 7, 10, 12].map((f) => ({ s: 1, f, kind: f % 12 === 0 ? 'root' : 'note', text: pcLabel(1, f) })) } }] } },
   ];
@@ -519,9 +519,9 @@ const STAGES = (function (G) {
       goal: 'Know the distance names and how they sound.',
       learn: [
         'An interval is the distance between two notes. 1 fret = a <b>semitone</b> (half step), 2 frets = a <b>tone</b> (whole step).',
-        'There are 12, but only a few matter for playing. Master the big four first, then the 4th and the across-string shapes. The rest is reference: the 2nds, 6ths and 7ths come back in stage 3 as scale numbers.',
+        'There are 12, but only a few matter for playing. Master the big four first (minor 3rd, major 3rd, 5th, octave), then add the 4th, the minor 7th and the across-string shapes. The rest is reference: it comes back in stage 3 as scale numbers.',
         'The four to really know: <b>minor 3rd</b> (3 frets, sounds sad, inside minor chords), <b>major 3rd</b> (4 frets, sounds happy, inside major chords), <b>perfect 5th</b> (7 frets, the power chord) and the <b>octave</b> (12 frets, same note).',
-        'Across strings, from a root on low E or A: next string, two frets lower = minor 3rd; one fret lower = major 3rd; same fret = perfect 4th; two frets higher = perfect 5th. Two strings up, two frets higher = octave.',
+        'Across strings, from a root on low E or A: next string, two frets lower = minor 3rd; one fret lower = major 3rd; same fret = perfect 4th; two frets higher = perfect 5th. Two strings up: two frets higher = octave; same fret = minor 7th.',
       ],
       figures: [{ title: 'Intervals from the root', fn: fig.intervals }],
       know: q2, knowSteps: IV_STEPS,
@@ -942,14 +942,14 @@ const STAGES = (function (G) {
     intervals: {
       title: 'Interval hop',
       how: ['Your root is the orange <b>A on the low E string, fret 5</b>. Keep coming back to it.', 'Each call names an interval and lights up the string to find it on. Play the root, then the interval note. On the same string that\'s one note after the other; across strings let both ring together.', 'Say the interval name and listen to the sound. The check shows the exact spot.'],
-      levels: [{ label: 'Level 1', detail: 'The big four (m3, M3, P5, octave), up the low E string', bpm: 60, every: 8 }, { label: 'Level 2', detail: 'Across strings: m3, M3, P4, P5 on the A string; octave on the D string', bpm: 60, every: 8 }, { label: 'Level 3', detail: 'Mixed: same string or across, faster', bpm: 70, every: 6 }],
+      levels: [{ label: 'Level 1', detail: 'The big four (m3, M3, P5, octave), up the low E string', bpm: 60, every: 8 }, { label: 'Level 2', detail: 'Across strings: m3, M3, P4, P5 on the A string; minor 7th and octave on the D string', bpm: 60, every: 8 }, { label: 'Level 3', detail: 'Mixed: same string or across, faster', bpm: 70, every: 6 }],
       callout: (lvl, st) => fresh(st, (r) => r.big + r.where, () => {
         const root = [{ s: 0, f: 5, kind: 'root', text: 'R' }];
         if (lvl === 0 || (lvl === 2 && Math.random() < 0.5)) {
-          const n = lvl === 0 ? pick([3, 4, 7, 12]) : pick([3, 4, 5, 7, 12]);
+          const n = lvl === 0 ? pick([3, 4, 7, 12]) : pick([3, 4, 5, 7, 10, 12]);
           return { big: G.INTERVALS[n], where: 'up the low E string', answer: `fret ${5 + n} (${G.PC_SHORT[G.mod(9 + n)]})`, board: lit(0, 0, 17, root), reveal: [{ s: 0, f: 5 + n, kind: 'right', text: G.INT_SHORT[n] }] };
         }
-        const [n, s] = pick([[3, 1], [4, 1], [5, 1], [7, 1], [12, 2]]);
+        const [n, s] = pick([[3, 1], [4, 1], [5, 1], [7, 1], [10, 2], [12, 2]]);
         const f = ROOT_A + n - G.OPEN_MIDI[s];
         return { big: G.INTERVALS[n], where: SN(s), answer: `${SN(s)}, fret ${f} (${G.PC_SHORT[G.mod(9 + n)]})`, board: lit(s, 0, 12, root), reveal: [{ s, f, kind: 'right', text: G.INT_SHORT[n] }] };
       }),

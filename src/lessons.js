@@ -35,7 +35,7 @@ const LESSONS = {
     { h: 'What an interval is', p: [
       'An interval is the <b>distance between two notes</b>, counted in frets. One fret is a <b>semitone</b> (also called a half step). Two frets is a <b>tone</b> (a whole step).',
       'Each distance has a name. The names sound technical, but they just describe how far apart two notes are, and each one has its own sound.' ] },
-    { h: 'All 12, from the root', p: ['Here are all 12 for reference. You don’t need to memorise them. Focus on the four in the next section, plus the 4th. The 2nds, 6ths and 7ths come back in stage 3 as scale numbers, which is how this course uses them.'],
+    { h: 'All 12, from the root', p: ['Here are all 12 for reference. You don’t need to memorise them. Focus on the four in the next section, plus the 4th and the minor 7th. The others (2nds, 6ths, major 7th) come back in stage 3 as scale numbers, which is how this course uses them.'],
       table: [['Frets', 'Name', 'Short'], ['1', 'minor 2nd', 'm2'], ['2', 'major 2nd', 'M2'], ['3', 'minor 3rd', 'm3'], ['4', 'major 3rd', 'M3'], ['5', 'perfect 4th', 'P4'], ['6', 'tritone', 'TT'], ['7', 'perfect 5th', 'P5'], ['8', 'minor 6th', 'm6'], ['9', 'major 6th', 'M6'], ['10', 'minor 7th', 'm7'], ['11', 'major 7th', 'M7'], ['12', 'octave', '8va']] },
     { h: 'The four that really matter', p: [
       '<b>Minor 3rd (3 frets)</b>: the "sad" sound. It’s what makes a chord minor.',
@@ -43,14 +43,18 @@ const LESSONS = {
       '<b>Perfect 5th (7 frets)</b>: strong and neutral. Root + 5th is a power chord.',
       '<b>Octave (12 frets)</b>: the same note, higher.' ],
       ex: 'Put a finger on A (low E, fret 5). Play it, then fret 8 (C): that’s a <b>minor 3rd</b>. Now A, then fret 9 (C♯): a <b>major 3rd</b>. That one fret is the whole difference between minor and major.', fig: 0 },
+    { h: 'Two more you’ll use a lot', p: [
+      '<b>Perfect 4th (5 frets)</b>: open and strong. It’s the next string up at the same fret, so you’ll bump into it everywhere.',
+      '<b>Minor 7th (10 frets)</b>: bluesy and smooth. Root + minor 3rd + 5th + minor 7th makes a <b>minor 7 chord</b>, the classic jam sound. It’s also in the minor pentatonic box you’ll meet in stage 8 (the G in A minor).' ],
+      ex: 'From A (low E, fret 5): the minor 7th is G, at low E fret 15, or much closer: two strings up, same fret (<b>D string fret 5</b>).' },
     { h: 'Across strings: small shapes instead of big stretches', p: [
       'Along one string, intervals mean big stretches. Across two strings they become tiny shapes. From a root on low E or A, on the next string up:',
       'Same fret = <b>perfect 4th</b>. Two frets higher = <b>perfect 5th</b> (the power chord shape). One fret lower = <b>major 3rd</b>. Two frets lower = <b>minor 3rd</b>.',
-      'Two strings up, two frets higher = <b>octave</b>.',
+      'Two strings up: two frets higher = <b>octave</b>. Same fret = <b>minor 7th</b>.',
       'Same rule as the octave shape: when the shape crosses from G to B, add one fret.' ],
-      ex: 'From A (low E fret 5): A string fret 5 = D (4th), fret 7 = E (5th), fret 4 = C♯ (major 3rd), fret 3 = C (minor 3rd).<br>D string fret 7 = A (octave).' },
+      ex: 'From A (low E fret 5): A string fret 5 = D (4th), fret 7 = E (5th), fret 4 = C♯ (major 3rd), fret 3 = C (minor 3rd).<br>D string fret 7 = A (octave), fret 5 = G (minor 7th).' },
     { h: 'Why this matters', p: [
-      'Chords are built from intervals (you’ll see this in stage 15), and words like "the 3rd" and "the 5th" come up all through the course. For now: know the names, and know those four sounds.' ] },
+      'Chords are built from intervals (you’ll see this in stage 15), and words like "the 3rd" and "the 5th" come up all through the course. For now: know the names, and know those sounds: the big four, plus the 4th and the minor 7th.' ] },
   ],
 
   scale: [
