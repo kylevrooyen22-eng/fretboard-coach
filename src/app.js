@@ -410,7 +410,7 @@
           el('span', { text: x.detail }));
       })));
       const k = p.knowStep;
-      if (k < stage.knowSteps.length - 1 && last10(k).length >= 10 && score(k) >= 8) {
+      if (k < stage.knowSteps.length - 1 && !stage.knowSteps[k + 1].optional && last10(k).length >= 10 && score(k) >= 8) {
         head.append(el('div', { class: 'nudge' }, el('span', null, el('b', { text: `${score(k)} of your last 10 right. ` }), `You’re ready for ${stage.knowSteps[k + 1].label}.`),
           el('button', { class: 'btn primary', onclick: () => { p.knowStep = k + 1; commit(); paintAll(); } }, `Go to ${stage.knowSteps[k + 1].label} →`)));
       }

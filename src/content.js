@@ -116,7 +116,7 @@ const STAGES = (function (G) {
       explain: `Count the frets from the root: fret ${f1} to fret ${f2} is ${n} fret${n > 1 ? 's' : ''} = ${ivName(n)}.`,
     };
   }
-  const q2 = () => qInterval(3);
+  const q2 = () => qInterval(2); // Ready test + reviews: what matters (big four, 4th, across strings)
   // Cheat-card diagrams: root A on low E fret 5, with the step's intervals
   const ivCheatBoards = (step) => {
     const R = { s: 0, f: 5, kind: 'root', text: 'R' };
@@ -129,7 +129,7 @@ const STAGES = (function (G) {
       rows: [['Minor 3rd', '3 frets', 'sad, inside minor chords'], ['Major 3rd', '4 frets', 'happy, inside major chords'], ['Perfect 5th', '7 frets', 'strong, the power chord'], ['Octave', '12 frets', 'same note, higher']] },
     { label: 'Step 2', detail: '+ the 4th, and across strings', gen: () => qInterval(2), boards: ivCheatBoards(2),
       rows: [['Minor 3rd', '3 frets', 'next string: 2 frets lower'], ['Major 3rd', '4 frets', 'next string: 1 fret lower'], ['Perfect 4th', '5 frets', 'next string: same fret'], ['Perfect 5th', '7 frets', 'next string: 2 frets higher'], ['Octave', '12 frets', 'two strings up: 2 frets higher']] },
-    { label: 'Step 3', detail: 'All 12', gen: () => qInterval(3), boards: ivCheatBoards(3),
+    { label: 'Step 3 · optional', detail: 'All 12, for reference', optional: true, gen: () => qInterval(3), boards: ivCheatBoards(3),
       rows: G.INTERVALS.slice(1).map((nm, i) => [nm, `${i + 1} fret${i ? 's' : ''}`, { 6: 'next string: 1 fret higher', 10: 'two strings up: same fret', 9: 'two strings up: 1 fret lower', 3: 'next string: 2 frets lower', 4: 'next string: 1 fret lower', 5: 'next string: same fret', 7: 'next string: 2 frets higher', 12: 'two strings up: 2 frets higher' }[i + 1] || '']) },
   ];
 
@@ -507,9 +507,9 @@ const STAGES = (function (G) {
       goal: 'Know the distance names and how they sound.',
       learn: [
         'An interval is the distance between two notes. 1 fret = a <b>semitone</b> (half step), 2 frets = a <b>tone</b> (whole step).',
-        'There are 12. Learn the four below first. The quiz drills the rest, so look back at the table when you need to.',
+        'There are 12, but only a few matter for playing. Master the big four first, then the 4th and the across-string shapes. The rest is reference: the 2nds, 6ths and 7ths come back in stage 3 as scale numbers.',
         'The four to really know: <b>minor 3rd</b> (3 frets, sounds sad, inside minor chords), <b>major 3rd</b> (4 frets, sounds happy, inside major chords), <b>perfect 5th</b> (7 frets, the power chord) and the <b>octave</b> (12 frets, same note).',
-        'Across strings, from a root on low E or A: next string, same fret = perfect 4th; two frets higher = perfect 5th. Two strings up, two frets higher = octave.',
+        'Across strings, from a root on low E or A: next string, two frets lower = minor 3rd; one fret lower = major 3rd; same fret = perfect 4th; two frets higher = perfect 5th. Two strings up, two frets higher = octave.',
       ],
       figures: [{ title: 'Intervals from the root', fn: fig.intervals }],
       know: q2, knowSteps: IV_STEPS,
@@ -933,15 +933,15 @@ const STAGES = (function (G) {
     },
     intervals: {
       title: 'Interval hop',
-      how: ['Your root is the orange <b>A on the low E string, fret 5</b>. Keep coming back to it.', 'Each call names an interval and lights up the string to find it on. Play the root, then the interval note. On one string that\'s one note after the other; at Level 3 (two strings) let both ring together.', 'Say the interval name and listen to the sound. The check shows the exact spot.'],
-      levels: [{ label: 'Level 1', detail: 'm3, M3, P4, P5 and octave, up the low E string', bpm: 60, every: 8 }, { label: 'Level 2', detail: 'All 12, up the low E string', bpm: 60, every: 8 }, { label: 'Level 3', detail: 'Across strings: m3, M3, P4, P5 on the A string; M6, m7, octave on the D string', bpm: 70, every: 6 }],
+      how: ['Your root is the orange <b>A on the low E string, fret 5</b>. Keep coming back to it.', 'Each call names an interval and lights up the string to find it on. Play the root, then the interval note. On the same string that\'s one note after the other; across strings let both ring together.', 'Say the interval name and listen to the sound. The check shows the exact spot.'],
+      levels: [{ label: 'Level 1', detail: 'The big four (m3, M3, P5, octave), up the low E string', bpm: 60, every: 8 }, { label: 'Level 2', detail: 'Across strings: m3, M3, P4, P5 on the A string; octave on the D string', bpm: 60, every: 8 }, { label: 'Level 3', detail: 'Mixed: same string or across, faster', bpm: 70, every: 6 }],
       callout: (lvl, st) => fresh(st, (r) => r.big + r.where, () => {
         const root = [{ s: 0, f: 5, kind: 'root', text: 'R' }];
-        if (lvl < 2) {
-          const n = lvl === 0 ? pick([3, 4, 5, 7, 12]) : 1 + rnd(12);
+        if (lvl === 0 || (lvl === 2 && Math.random() < 0.5)) {
+          const n = lvl === 0 ? pick([3, 4, 7, 12]) : pick([3, 4, 5, 7, 12]);
           return { big: G.INTERVALS[n], where: 'up the low E string', answer: `fret ${5 + n} (${G.PC_SHORT[G.mod(9 + n)]})`, board: lit(0, 0, 17, root), reveal: [{ s: 0, f: 5 + n, kind: 'right', text: G.INT_SHORT[n] }] };
         }
-        const [n, s] = pick([[3, 1], [4, 1], [5, 1], [7, 1], [12, 2], [9, 2], [10, 2]]);
+        const [n, s] = pick([[3, 1], [4, 1], [5, 1], [7, 1], [12, 2]]);
         const f = ROOT_A + n - G.OPEN_MIDI[s];
         return { big: G.INTERVALS[n], where: SN(s), answer: `${SN(s)}, fret ${f} (${G.PC_SHORT[G.mod(9 + n)]})`, board: lit(s, 0, 12, root), reveal: [{ s, f, kind: 'right', text: G.INT_SHORT[n] }] };
       }),
