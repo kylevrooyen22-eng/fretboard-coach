@@ -509,6 +509,7 @@
   }
 
   /* ---------- Use (jam) panel ---------- */
+  const ruleText = (r) => (typeof r === 'string' ? r : `<b>${r.title}</b> ${r.text}`);
   function usePanel(stage, { session } = {}) {
     const p = sp(stage.id);
     const box = el('div', { class: 'stack' });
@@ -523,10 +524,13 @@
           el('a', { class: 'btn', href: 'https://www.youtube.com/results?search_query=' + encodeURIComponent(q), target: '_blank', rel: 'noopener' }, 'Search YouTube')));
       } else box.append(el('div', { class: 'track' }, el('span', { class: 'muted', text: 'No track needed. Just you and the guitar.' })));
       box.append(el('p', { class: 'eyebrow', text: 'Today’s rule' }));
-      box.append(el('p', { class: 'rule', html: rules[idx] }));
+      const r = rules[idx];
+      box.append(el('p', { class: 'rule', html: typeof r === 'string' ? r : r.title }));
+      if (typeof r !== 'string') box.append(el('p', { class: 'rule-detail', html: r.text }));
+      if (r && r.fig) box.append(figure(r.fig, stage));
       box.append(el('div', { class: 'row' }, el('button', { class: 'btn', onclick: () => { p.ruleIdx = idx + 1; commit(); paint(); } }, 'Give me another rule'),
         el('span', { class: 'muted', text: 'Stick to the rule. When you catch yourself falling back on old licks, that’s the moment it’s working.' })));
-      const det = el('details', null, el('summary', { class: 'muted', style: 'cursor:pointer', text: `All ${rules.length} rules for this stage` }), el('ul', { class: 'points', style: 'margin-top:8px' }, ...rules.map((r) => el('li', { html: r }))));
+      const det = el('details', null, el('summary', { class: 'muted', style: 'cursor:pointer', text: `All ${rules.length} rules for this stage` }), el('ul', { class: 'points', style: 'margin-top:8px' }, ...rules.map((r) => el('li', { html: ruleText(r) }))));
       box.append(det);
     }
     paint();
@@ -629,7 +633,7 @@
     return el('div', { class: 'week' },
       el('div', { class: 'item' }, el('span', { class: 'eyebrow', text: 'Know it' }), el('span', null, `${st.test.n} questions on the Know it tab each day. Aim for ${st.test.pass}+ right.`)),
       el('div', { class: 'item' }, el('span', { class: 'eyebrow', text: 'Play it' }), el('span', null, el('b', { text: st.play.title }), ` · ${L.label}: ${L.detail}, ${L.bpm} bpm.`)),
-      el('div', { class: 'item' }, el('span', { class: 'eyebrow', text: 'Use it' }), el('span', { html: rule })),
+      el('div', { class: 'item' }, el('span', { class: 'eyebrow', text: 'Use it' }), el('span', { html: ruleText(rule) })),
       el('div', { class: 'item' }, el('span', { class: 'eyebrow', text: 'Ready?' }), el('span', null, `Take the ready test once you’ve nailed ${st.play.levels[st.test.playLevel].label}.`)));
   }
 

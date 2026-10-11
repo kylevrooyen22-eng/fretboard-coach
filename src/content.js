@@ -473,6 +473,18 @@ const STAGES = (function (G) {
     },
   };
 
+  /* ---------- Use-it rules with a diagram (text = the rule, fig = what to play) ---------- */
+  const pcLabel = (s, f) => G.PC_SHORT[G.pcAt(s, f)];
+  const POWER = [['A', 0, 5], ['C', 0, 8], ['D', 1, 5], ['E', 1, 7], ['G', 0, 3]];
+  const USE_INTERVALS = [
+    { title: 'Strum power chords along with the track.', text: 'A power chord is just two notes: a root, plus its 5th (next string up, two frets higher). Strum only those two strings and mute the rest. Use the five below: they all fit the track. Change chord whenever it sounds right, e.g. A for a bar, then C, then G.',
+      fig: { title: 'The five power chords', fn: () => POWER.map(([n, s, f]) => ({ label: n, caption: `The ${n} power chord: ${G.STRING_NAMES[s]} string fret ${f} (root) + ${G.STRING_NAMES[s + 1]} string fret ${f + 2} (its 5th).`, spec: { lo: 0, hi: 12, dots: [{ s, f, kind: 'root', text: 'R' }, { s: s + 1, f: f + 2, kind: 'note', text: '5' }], links: [[s, f, s + 1, f + 2]] } })) } },
+    { title: 'Make a melody that only moves in 3rds.', text: 'Stay on the <b>low E string</b> and use only <b>frets 5, 8, 12 and 15</b> (A, C, E, G). Play slowly and only move to a neighbouring fret in that list, up or down. Every move is a 3rd: say "minor 3rd" or "major 3rd" as you go.',
+      fig: { title: 'Your four notes', fn: () => [{ label: 'Low E string', caption: 'Fret 5 → 8 = minor 3rd · 8 → 12 = major 3rd · 12 → 15 = minor 3rd (and the same going back down).', spec: { lo: 4, hi: 16, dots: [5, 8, 12, 15].map((f) => ({ s: 0, f, kind: f === 5 ? 'root' : 'note', text: pcLabel(0, f) })) } }] } },
+    { title: 'Small steps vs big jumps: hear the difference.', text: 'On the <b>A string</b> only, use the notes below (open, frets 3, 5, 7, 10, 12). Play one phrase moving only to the <b>next</b> note (small steps). Then play one using only <b>big jumps</b>: a 5th (7 frets, e.g. open → 7, 3 → 10, 5 → 12) or the octave (open → 12). Hear the difference: steps sound like singing, jumps sound bold.',
+      fig: { title: 'Notes on the A string', fn: () => [{ label: 'A string', caption: 'Big jumps: open → 7 (A to E), 3 → 10 (C to G), 5 → 12 (D to A) are 5ths. Open → 12 is the octave.', spec: { lo: 0, hi: 13, dots: [0, 3, 5, 7, 10, 12].map((f) => ({ s: 1, f, kind: f % 12 === 0 ? 'root' : 'note', text: pcLabel(1, f) })) } }] } },
+  ];
+
   /* ---------- The 16 stages ---------- */
   const S = [
     {
@@ -519,11 +531,7 @@ const STAGES = (function (G) {
         callout: (lvl) => { const n = lvl === 0 ? pick([3, 4, 5, 7, 12]) : 1 + rnd(12); return { big: G.INTERVALS[n], small: `${n} fret${n > 1 ? 's' : ''}` }; },
         pass: 'Every interval played and named without looking anything up.',
       },
-      use: { track: 'A minor backing track slow', rules: [
-        'Play only power chords (root + 5th) on A, C, D, E and G, in rhythm with the track.',
-        'On the low E string, frets 5–17, use only A, C, E and G (frets 5, 8, 12, 15, 17) and make a melody where every jump is a 3rd (3 or 4 frets).',
-        'Play one phrase using only small steps (1–2 frets), then one using only big jumps. Hear the difference.',
-      ] },
+      use: { track: 'A minor backing track slow', rules: USE_INTERVALS },
       test: { n: 10, pass: 8, maxAvg: null, playLevel: 1 },
     },
     {
