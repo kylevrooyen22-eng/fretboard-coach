@@ -398,8 +398,8 @@ const STAGES = (function (G) {
       { label: 'Onto B and e (+1)', spec: { lo: 0, hi: 12, dots: [{ s: 2, f: 5, kind: 'root', text: 'G' }, { s: 4, f: 8, kind: 'note', text: 'G' }, { s: 3, f: 5, kind: 'root', text: 'C' }, { s: 5, f: 8, kind: 'note', text: 'C' }], links: [[2, 5, 4, 8], [3, 5, 5, 8]] } },
     ],
     intervals: () => [
-      { label: 'One string', spec: { lo: 4, hi: 17, dots: [{ s: 0, f: 5, kind: 'root', text: 'R' }, ...[...Array(12)].map((_, i) => ({ s: 0, f: 6 + i, kind: [3, 4, 7, 12].includes(i + 1) ? 'note' : 'ghost', text: G.INT_SHORT[i + 1] }))] } },
-      { label: 'Across strings', spec: { lo: 1, hi: 9, dots: [{ s: 0, f: 5, kind: 'root', text: 'R' }, { s: 1, f: 3, kind: 'note', text: 'm3' }, { s: 1, f: 4, kind: 'note', text: 'M3' }, { s: 1, f: 5, kind: 'note', text: 'P4' }, { s: 1, f: 7, kind: 'note', text: 'P5' }, { s: 2, f: 7, kind: 'note', text: '8va' }] } },
+      { label: 'One string', spec: { lo: 4, hi: 17, dots: [{ s: 0, f: 5, kind: 'root', text: 'R' }, ...[...Array(12)].map((_, i) => ({ s: 0, f: 6 + i, kind: [3, 4, 5, 7, 10, 12].includes(i + 1) ? 'note' : 'ghost', text: G.INT_SHORT[i + 1] }))] }, caption: 'Coloured = the ones to know (the big four, plus the 4th and minor 7th). Grey = reference only.' },
+      { label: 'Across strings', spec: { lo: 1, hi: 9, dots: [{ s: 0, f: 5, kind: 'root', text: 'R' }, { s: 1, f: 3, kind: 'note', text: 'm3' }, { s: 1, f: 4, kind: 'note', text: 'M3' }, { s: 1, f: 5, kind: 'note', text: 'P4' }, { s: 1, f: 7, kind: 'note', text: 'P5' }, { s: 2, f: 5, kind: 'note', text: 'm7' }, { s: 2, f: 7, kind: 'note', text: '8va' }] }, caption: 'From the root on low E: the next string gives the 3rds, 4th and 5th; two strings up gives the minor 7th (same fret) and the octave (two frets higher).' },
     ],
     scaleOnString: (k) => [{ label: 'A string', spec: { lo: 0, hi: 15, dots: withKinds(G.stringScale(1, k)).map((d) => ({ ...d, text: String(d.deg) })) } }, { label: 'Low E', spec: { lo: 0, hi: 15, dots: withKinds(G.stringScale(0, k)).map((d) => ({ ...d, text: String(d.deg) })) } }],
     barreShapes: () => {

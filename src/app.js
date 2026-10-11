@@ -153,7 +153,7 @@
     minor: { fill: 'var(--minor)', stroke: 'none', text: '#fff' },
     white: { fill: '#F6F1E6', stroke: '#1A1E1C', text: '#1A1E1C' },
     black: { fill: '#0E0F0E', stroke: '#F6F1E6', text: '#F6F1E6' },
-    ghost: { fill: 'var(--ghost)', stroke: 'none', text: 'rgba(255,255,255,.75)' },
+    ghost: { fill: 'var(--ghost)', stroke: 'none', text: '#fff' },
     target: { fill: 'var(--target)', stroke: 'none', text: '#1A1E1C' },
     right: { fill: 'var(--good)', stroke: 'none', text: '#fff' },
     wrong: { fill: 'var(--bad)', stroke: 'none', text: '#fff' },
@@ -206,7 +206,7 @@
       const k = KIND[d.kind] || KIND.note;
       const cx = xF(d.f), cy = yS(d.s);
       if (d.kind === 'ring') { root.append(svg('circle', { cx, cy, r: 13.5, style: 'fill:none;stroke:var(--brass);stroke-width:2.5' })); return; }
-      root.append(svg('circle', { cx, cy, r: d.kind === 'ghost' ? 8 : 10.5, style: `fill:${k.fill};stroke:${k.stroke};stroke-width:${k.stroke === 'none' ? 0 : 1.5}` }));
+      root.append(svg('circle', { cx, cy, r: d.kind === 'ghost' && !d.text ? 8 : 10.5, style: `fill:${k.fill};stroke:${k.stroke};stroke-width:${k.stroke === 'none' ? 0 : 1.5}` }));
       if (d.kind === 'target') root.append(svg('circle', { class: 'pulse', cx, cy, r: 14, style: 'fill:none;stroke:var(--target);stroke-width:2.5' }));
       let label = d.text;
       if (label == null && d.deg) label = mode === 'note' && opts.keyPc != null ? G.nameIn(G.pcAt(d.s, d.f), opts.keyPc) : String(d.deg);
