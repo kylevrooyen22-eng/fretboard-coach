@@ -18,39 +18,82 @@ const STAGES = (function (G) {
   const ordinal = (n) => n + (n === 1 ? 'st' : n === 2 ? 'nd' : n === 3 ? 'rd' : 'th');
   const span = (dots, pad = 1) => { const [a, b] = G.posSpan(dots); return [Math.max(0, a - pad), Math.min(17, Math.max(b + pad, a - pad + 6))]; };
 
-  /* ---------- Stage 1: find any note ---------- */
-  function q1() {
-    const t = weighted([[40, 'ea'], [35, 'upper'], [25, 'find']]);
-    if (t === 'find') {
-      const s = pick([2, 3, 4, 5, 0, 1]);
-      const pc = rnd(12);
-      return {
-        type: 'click', prompt: `Click any <b>${G.PC_LABEL[pc]}</b> on the <b>${G.STRING_NAMES[s]}</b> string.`,
-        board: { lo: 0, hi: 15, dots: [] }, clickString: s,
-        isCorrect: (cs, cf) => cs === s && G.pcAt(cs, cf) === pc,
-        solution: [0, 12].map((o) => ({ s, f: G.mod(pc - G.OPEN_PC[s]) + o, kind: 'right', text: G.PC_SHORT[pc] })).filter((d) => d.f <= 15),
-        explain: s <= 1 ? 'Use the landmark notes at frets 3, 5, 7, 9 and 12, then count up or down.' : 'Find it two strings down (towards low E), then use the octave shape: 2 strings up, 2 frets higher (3 frets when you land on B or high e).',
-      };
+  /* ---------- Stage 1 (1.1 / 1.2 / 1.3): find any note ---------- */
+  const A_ORDER = [9, 10, 11, 0, 1, 2, 3, 4, 5, 6, 7, 8]; // A first, like the lesson's 12-note row
+  const ALL_CHOICES = A_ORDER.map((pc) => ({ label: G.PC_LABEL[pc], value: pc }));
+  const NAT_CHOICES = A_ORDER.filter((pc) => [0, 2, 4, 5, 7, 9, 11].includes(pc)).map((pc) => ({ label: G.PC_LABEL[pc], value: pc }));
+  const isNat = (pc) => [0, 2, 4, 5, 7, 9, 11].includes(G.mod(pc));
+  const SN1 = (s) => G.STRING_NAMES[s];
+  // Explain a plain note on low E / A: nearest landmark (open, 3, 5, 7, 12), then walk the letters
+  function walkExplain(s, f) {
+    const lm = [0, 3, 5, 7, 12].reduce((x, y) => (Math.abs(y - f) < Math.abs(x - f) ? y : x));
+    if (lm === f) return `Fret ${f} on the ${SN1(s)} string is a landmark: ${G.PC_SHORT[G.pcAt(s, f)]}.`;
+    const dir = f > lm ? 1 : -1, path = [];
+    for (let x = lm; x !== f + dir; x += dir) if (isNat(G.pcAt(s, x))) path.push(`${G.PC_SHORT[G.pcAt(s, x)]} (${x})`);
+    return `Nearest landmark: fret ${lm} = ${G.PC_SHORT[G.pcAt(s, lm)]}. Walk the letters ${dir > 0 ? 'up' : 'down'}: ${path.join(' → ')}. (B–C and E–F are one fret apart, other letters two.)`;
+  }
+  function sharpExplain(s, f) {
+    const below = G.PC_SHORT[G.pcAt(s, f - 1)], above = G.PC_SHORT[G.pcAt(s, f + 1)];
+    return `Fret ${f} is one fret above ${below} (fret ${f - 1}), so it's ${below}♯. It's also one fret below ${above} (fret ${f + 1}), so its other name is ${above}♭.`;
+  }
+  const findQ = (s, pc, hi, explain) => ({
+    type: 'click', prompt: `Click a <b>${G.PC_LABEL[pc]}</b> on the <b>${SN1(s)}</b> string.`,
+    board: { lo: 0, hi, dots: [] }, clickString: s,
+    isCorrect: (cs, cf) => cs === s && G.pcAt(cs, cf) === pc,
+    solution: [0, 12].map((o) => ({ s, f: G.mod(pc - G.OPEN_PC[s]) + o, kind: 'right', text: G.PC_SHORT[pc] })).filter((d) => d.f <= hi),
+    explain,
+  });
+  const nameQ = (s, f, choices, explain, solutionBoard) => ({
+    type: 'choice', prompt: `What note is this, on the <b>${SN1(s)}</b> string?`,
+    board: { lo: 0, hi: s <= 1 ? 12 : 15, dots: [{ s, f, kind: 'target', text: '?' }] }, solutionBoard,
+    choices, answer: G.pcAt(s, f), explain,
+  });
+  // 1.1: plain notes (A–G) on low E and A
+  function q1a() {
+    const s = pick([0, 1]);
+    const frets = [...Array(13).keys()].filter((f) => isNat(G.pcAt(s, f)));
+    if (Math.random() < 0.4) {
+      const f = pick(frets.filter((x) => x <= 11)); const pc = G.pcAt(s, f);
+      return findQ(s, pc, 12, walkExplain(s, f));
     }
-    const s = t === 'ea' ? pick([0, 1]) : pick([2, 3, 4, 5]);
-    const f = t === 'ea' ? rnd(13) : 1 + rnd(12);
+    const f = pick(frets);
+    return nameQ(s, f, NAT_CHOICES, walkExplain(s, f));
+  }
+  // 1.2: all 12 on low E and A, leaning on the in-between notes
+  const TWIN = { 1: [1, 'C♯', 'D♭'], 3: [3, 'D♯', 'E♭'], 6: [6, 'F♯', 'G♭'], 8: [8, 'G♯', 'A♭'], 10: [10, 'A♯', 'B♭'] };
+  function q1b() {
+    const s = pick([0, 1]);
+    const t = weighted([[45, 'name'], [35, 'find'], [20, 'twin']]);
+    if (t === 'twin') {
+      const [pc, sh, fl] = TWIN[pick([1, 3, 6, 8, 10])];
+      const flip = Math.random() < 0.5;
+      const ask = flip ? fl : sh, ans = flip ? sh : fl;
+      const pool = Object.values(TWIN).map(([, a, b]) => (flip ? a : b));
+      return { type: 'choice', prompt: `<b>${ask}</b> has a second name for the same fret. What is it?`, choices: four({ label: ans, value: ans }, pool.map((x) => ({ label: x, value: x }))), answer: ans,
+        explain: `${sh} is one fret above ${sh[0]}; ${fl} is one fret below ${fl[0]}. Same fret, two names.` };
+    }
+    const sharpF = [...Array(13).keys()].filter((f) => !isNat(G.pcAt(s, f)));
+    const f = Math.random() < 0.65 ? pick(sharpF) : rnd(12);
     const pc = G.pcAt(s, f);
-    let explain;
-    if (s <= 1) {
-      const lm = [0, ...G.LANDMARKS].reduce((a, b) => Math.abs(b - f) < Math.abs(a - f) ? b : a);
-      explain = `Nearest landmark: fret ${lm} on the ${G.STRING_NAMES[s]} string is ${G.PC_SHORT[G.pcAt(s, lm)]}` + (lm === f ? '.' : `, then count ${Math.abs(f - lm)} fret${Math.abs(f - lm) > 1 ? 's' : ''} ${f > lm ? 'up' : 'down'}.`);
-    } else {
-      const chain = G.traceToEA(s, f);
-      const last = chain[chain.length - 1];
-      explain = 'Trace it back with the octave shape: ' + chain.map((c) => `${G.STRING_SHORT[c.s]} fret ${c.f}`).join(' → ') + ` = ${G.PC_SHORT[G.pcAt(last.s, last.f)]}.`;
+    const ex = isNat(pc) ? walkExplain(s, f) : sharpExplain(s, f);
+    return t === 'find' ? findQ(s, pc, 12, `${G.PC_LABEL[pc]} on the ${SN1(s)} string is at fret ${G.mod(pc - G.OPEN_PC[s])}${G.mod(pc - G.OPEN_PC[s]) === 0 ? ' (open) and 12' : ''}. ` + ex) : nameQ(s, f, ALL_CHOICES, ex);
+  }
+  // 1.3: the D, G, B and high e strings, via the octave shape
+  function q1c() {
+    const s = weighted([[25, 2], [25, 3], [30, 4], [20, 5]]);
+    const f = 1 + rnd(12), pc = G.pcAt(s, f);
+    let ex, chain = [];
+    if (s === 5) ex = `High e has the same notes as low E, fret for fret: low E fret ${f} is ${G.PC_SHORT[pc]}.`;
+    else {
+      const full = G.traceToEA(s, f); chain = full.slice(1);
+      const last = full[full.length - 1];
+      ex = 'Run the octave shape backwards: ' + full.map((c) => `${G.STRING_SHORT[c.s]} fret ${c.f}`).join(' → ') + ` = ${G.PC_SHORT[G.pcAt(last.s, last.f)]}.`;
     }
-    const chain = s > 1 ? G.traceToEA(s, f).slice(1) : [];
-    return {
-      type: 'choice', prompt: 'What note is this?',
-      board: { lo: 0, hi: 15, dots: [{ s, f, kind: 'target', text: '?' }] },
-      solutionBoard: chain.length ? { lo: 0, hi: 15, dots: [{ s, f, kind: 'right', text: G.PC_SHORT[pc] }, ...chain.map((c) => ({ ...c, kind: 'note', text: G.PC_SHORT[pc] }))], links: chain.map((c, i) => { const a = i === 0 ? { s, f } : chain[i - 1]; return [a.s, a.f, c.s, c.f]; }) } : null,
-      choices: NOTE_CHOICES, answer: pc, explain,
-    };
+    if (Math.random() < 0.35) {
+      return findQ(s, pc, 15, `${G.PC_LABEL[pc]} on the ${SN1(s)} string: ` + ex.replace(/^Run the octave shape backwards: /, 'from ').replace(/^High e has/, 'high e has'));
+    }
+    const sb = chain.length ? { lo: 0, hi: 15, dots: [{ s, f, kind: 'right', text: G.PC_SHORT[pc] }, ...chain.map((c) => ({ ...c, kind: 'note', text: G.PC_SHORT[pc] }))], links: chain.map((c, i) => { const a = i === 0 ? { s, f } : chain[i - 1]; return [a.s, a.f, c.s, c.f]; }) } : null;
+    return nameQ(s, f, ALL_CHOICES, ex, sb);
   }
 
   /* ---------- Stage 2: intervals ---------- */
@@ -391,6 +434,8 @@ const STAGES = (function (G) {
 
   /* ---------- Figures ---------- */
   const fig = {
+    naturals: () => [{ label: 'Plain notes on low E and A', caption: 'Two frets between letters, except B → C and E → F (one fret). Orange = the open-string note again at fret 12.', spec: { lo: 0, hi: 12, dots: [0, 1].flatMap((s) => [...Array(13).keys()].filter((f) => isNat(G.pcAt(s, f))).map((f) => ({ s, f, kind: f % 12 === 0 ? 'root' : 'note', text: G.PC_SHORT[G.pcAt(s, f)] }))) } }],
+    allTwelve: () => [{ label: 'All 12 on low E and A', caption: 'Blue = plain notes. Purple = in-between notes (shown with their ♯ name; each also has a ♭ name).', spec: { lo: 0, hi: 12, dots: [0, 1].flatMap((s) => [...Array(13).keys()].map((f) => { const pc = G.pcAt(s, f); return { s, f, kind: isNat(pc) ? 'note' : 'minor', text: isNat(pc) ? G.PC_SHORT[pc] : G.PC_LABEL[pc].split('/')[0] }; })) } }],
     landmarks: () => [{ label: 'Landmarks', spec: { lo: 0, hi: 12, dots: [0, 1].flatMap((s) => G.LANDMARKS.map((f) => ({ s, f, kind: f === 12 ? 'root' : 'note', text: G.PC_SHORT[G.pcAt(s, f)] }))) } }],
     octaves: () => [
       { label: 'Low E → D', spec: { lo: 0, hi: 12, dots: [{ s: 0, f: 3, kind: 'root', text: 'G' }, { s: 2, f: 5, kind: 'note', text: 'G' }, { s: 0, f: 7, kind: 'root', text: 'B' }, { s: 2, f: 9, kind: 'note', text: 'B' }], links: [[0, 3, 2, 5], [0, 7, 2, 9]] } },
@@ -476,6 +521,31 @@ const STAGES = (function (G) {
   /* ---------- Use-it rules with a diagram (text = the rule, fig = what to play) ---------- */
   const pcLabel = (s, f) => G.PC_SHORT[G.pcAt(s, f)];
   const POWER = [['A', 0, 5], ['C', 0, 8], ['D', 1, 5], ['E', 1, 7], ['G', 0, 3]];
+  const noteDots = (pairs, kindOf = () => 'note') => pairs.map(([s, f]) => ({ s, f, kind: kindOf(s, f), text: G.PC_SHORT[G.pcAt(s, f)] }));
+  const USE_NOTES_1 = [
+    { title: 'Play only A, C, D, E and G.', text: 'They all fit the track. Stay on the <b>low E and A strings</b>, frets 0–12. Say each note’s name out loud before you play it.',
+      fig: { title: 'Your five notes', fn: () => [{ label: 'Low E and A', caption: 'Orange = A, the home note of the track.', spec: { lo: 0, hi: 12, dots: noteDots([[0, 0], [0, 3], [0, 5], [0, 8], [0, 10], [0, 12], [1, 0], [1, 3], [1, 5], [1, 7], [1, 10], [1, 12]], (s, f) => (G.pcAt(s, f) === 9 ? 'root' : 'note')) } }] } },
+    { title: 'Hunt one note at a time.', text: 'Play only <b>C</b>, in rhythm with the track: it’s at <b>low E fret 8</b> and <b>A string fret 3</b>. Switch between the two. After a minute, do the same with <b>E</b> (open low E or fret 12, A string fret 7).',
+      fig: { title: 'Where they are', fn: () => [{ label: 'C', spec: { lo: 0, hi: 12, dots: noteDots([[0, 8], [1, 3]]) } }, { label: 'E', spec: { lo: 0, hi: 12, dots: noteDots([[0, 0], [0, 12], [1, 7]]) } }] } },
+    { title: 'A slow melody on the A string.', text: 'Stay on the <b>A string</b> only and use A (open or fret 12), C (3), D (5), E (7) and G (10). Make a slow melody and name every note as you play it.',
+      fig: { title: 'Notes on the A string', fn: () => [{ label: 'A string', spec: { lo: 0, hi: 12, dots: noteDots([[1, 0], [1, 3], [1, 5], [1, 7], [1, 10], [1, 12]], (s, f) => (f % 12 === 0 ? 'root' : 'note')) } }] } },
+  ];
+  const USE_NOTES_2 = [
+    { title: 'Add the blue note.', text: 'Use A, C, D, E and G on low E and A (like stage 1.1), plus one in-between note: <b>E♭</b>, also called D♯. It’s at <b>low E fret 11</b> and <b>A string fret 6</b>. Use it on the way from D to E: D → E♭ → E. That’s the classic blues sound.',
+      fig: { title: 'Your notes', fn: () => [{ label: 'Low E and A', caption: 'Purple = E♭ (D♯), the blue note. Orange = A.', spec: { lo: 0, hi: 12, dots: [...noteDots([[0, 0], [0, 3], [0, 5], [0, 8], [0, 10], [0, 12], [1, 0], [1, 3], [1, 5], [1, 7], [1, 10], [1, 12]], (s, f) => (G.pcAt(s, f) === 9 ? 'root' : 'note')), { s: 0, f: 11, kind: 'minor', text: 'E♭' }, { s: 1, f: 6, kind: 'minor', text: 'E♭' }] } }] } },
+    { title: 'Name every fret on the A string.', text: 'Walk up the <b>A string</b> one fret per beat, from open to fret 12, and say every name. For the in-between notes say both names: "A sharp, or B flat".',
+      fig: { title: 'The A string, fret by fret', fn: () => [{ label: 'A string', spec: { lo: 0, hi: 12, dots: [...Array(13).keys()].map((f) => { const pc = G.pcAt(1, f); return { s: 1, f, kind: isNat(pc) ? 'note' : 'minor', text: isNat(pc) ? G.PC_SHORT[pc] : G.PC_LABEL[pc].split('/')[0] }; }) } }] } },
+    { title: 'Sharp up, flat down.', text: 'Pick a plain note on <b>low E</b>, e.g. G at fret 3. Play it, then one fret higher (G♯) and one fret lower (G♭, the same fret as F♯). Say each name. Do it for every plain note on low E and A, skipping the sides with no in-between note (B–C, E–F).',
+      fig: { title: 'Example: G on low E', fn: () => [{ label: 'G', caption: 'Fret 2 = G♭ (also F♯) · fret 3 = G · fret 4 = G♯ (also A♭).', spec: { lo: 0, hi: 7, dots: [{ s: 0, f: 2, kind: 'minor', text: 'G♭' }, { s: 0, f: 3, kind: 'root', text: 'G' }, { s: 0, f: 4, kind: 'minor', text: 'G♯' }] } }] } },
+  ];
+  const USE_NOTES_3 = [
+    { title: 'One note, every string.', text: 'Play only <b>C</b>, in rhythm with the track, on every string from low to high: low E fret 8, A fret 3, D fret 10, G fret 5, B fret 1, high e fret 8. Then go back down.',
+      fig: { title: 'Every C up to fret 12', fn: () => [{ label: 'C', spec: { lo: 0, hi: 12, dots: noteDots([[0, 8], [1, 3], [2, 10], [3, 5], [4, 1], [5, 8]]), links: [[1, 3, 3, 5], [0, 8, 2, 10], [3, 5, 5, 8]] } }] } },
+    { title: 'Same phrase, one octave higher.', text: 'Play a short phrase on the <b>low E string</b> with A (fret 5), C (8) and D (10). Then play it again one octave up with the octave shape, two strings up and two frets higher: <b>D string frets 7, 10 and 12</b>.',
+      fig: { title: 'The phrase, twice', fn: () => [{ label: 'Low E → D', spec: { lo: 3, hi: 13, dots: noteDots([[0, 5], [0, 8], [0, 10], [2, 7], [2, 10], [2, 12]]), links: [[0, 5, 2, 7], [0, 8, 2, 10], [0, 10, 2, 12]] } }] } },
+    { title: 'Explore the top strings.', text: 'Use only A, C, D, E and G, on the <b>G, B and high e strings</b>. Name each note as you play it. Not sure? Trace it back to low E or A with the octave shape.',
+      fig: { title: 'Your notes on G, B and high e', fn: () => [{ label: 'G, B, high e', spec: { lo: 0, hi: 12, dots: [3, 4, 5].flatMap((s) => [...Array(13).keys()].filter((f) => [9, 0, 2, 4, 7].includes(G.pcAt(s, f))).map((f) => ({ s, f, kind: G.pcAt(s, f) === 9 ? 'root' : 'note', text: G.PC_SHORT[G.pcAt(s, f)] }))) } }] } },
+  ];
   const USE_INTERVALS = [
     { title: 'Strum power chords along with the track.', text: 'A power chord is just two notes: a root, plus its 5th (next string up, two frets higher). Strum only those two strings and mute the rest. Use the five below: they all fit the track. Change chord whenever it sounds right, e.g. A for a bar, then C, then G.',
       fig: { title: 'The five power chords', fn: () => POWER.map(([n, s, f]) => ({ label: n, caption: `The ${n} power chord: ${G.STRING_NAMES[s]} string fret ${f} (root) + ${G.STRING_NAMES[s + 1]} string fret ${f + 2} (its 5th).`, spec: { lo: 0, hi: 12, dots: [{ s, f, kind: 'root', text: 'R' }, { s: s + 1, f: f + 2, kind: 'note', text: '5' }], links: [[s, f, s + 1, f + 2]] } })) } },
@@ -488,31 +558,48 @@ const STAGES = (function (G) {
   /* ---------- The 16 stages ---------- */
   const S = [
     {
-      id: 'notes', group: 'Foundations', title: 'Find any note', course: 'Module 1 · The 12 Notes, Notes on E & A, Octave Centers',
-      goal: 'Name any note on the neck, without a chart.',
+      id: 'notes', sub: '1.1', group: 'Foundations', title: 'Notes on low E & A', course: 'Module 1 · The 12 Notes, Notes on E & A',
+      goal: 'Name the plain notes (A to G) on the low E and A strings, without a chart.',
       learn: [
-        'There are 12 notes. The letters run A B C D E F G, then start again.',
-        'Between every pair of letters is a sharp/flat note, except <b>B–C</b> and <b>E–F</b>. Sharp and flat are two names for the same fret (C♯ = D♭).',
-        'Don\'t memorise every fret. Learn the <b>landmark frets</b> on the low E and A strings (3, 5, 7, 9, 12) and count from there.',
+        'There are 12 notes. Seven have plain letter names: A B C D E F G, then A again. This stage is only about those seven.',
+        'Letters are two frets apart, except <b>B–C</b> and <b>E–F</b>, which are one fret apart.',
         'Directions: "up a string" = towards the thin high e string. "Higher" = a higher fret number, towards the guitar body.',
+        'Walk the letters up a string from the open note. Low E: E F G A B C D E. A string: A B C D E F G A.',
+        'Shortcut: learn frets 3, 5, 7 and 12 on both strings (low E: G A B E · A string: C D E A) and walk from the nearest one.',
+      ],
+      figures: [{ title: 'Plain notes on low E and A', fn: fig.naturals }],
+      know: q1a,
+      use: { track: 'A minor backing track slow', rules: USE_NOTES_1 },
+      test: { n: 15, pass: 13, maxAvg: 5, playLevel: 2 },
+    },
+    {
+      id: 'notes2', sub: '1.2', group: 'Foundations', title: 'Sharps & flats on low E & A', course: 'Module 1 · The 12 Notes, Notes on E & A',
+      goal: 'Name all 12 notes on the low E and A strings, including the in-between ones.',
+      learn: [
+        'Between most letters sits one in-between note. There are five of them.',
+        '<b>♯ (sharp)</b> = one fret higher than the letter. <b>♭ (flat)</b> = one fret lower. So each in-between note has two names: C♯ = D♭, same fret.',
+        'There is no in-between note at B–C or E–F.',
+        'To find one: find the plain note (stage 1.1), then step one fret.',
+        'Full landmarks now include fret 9: low E fret 9 = C♯, A string fret 9 = F♯.',
+      ],
+      figures: [{ title: 'All 12 on low E and A', fn: fig.allTwelve }, { title: 'Landmark notes', fn: fig.landmarks }],
+      know: q1b,
+      use: { track: 'A blues backing track slow', rules: USE_NOTES_2 },
+      test: { n: 15, pass: 13, maxAvg: 6, playLevel: 2 },
+    },
+    {
+      id: 'notes3', sub: '1.3', group: 'Foundations', title: 'Notes on the other strings', course: 'Module 1 · Octave Centers',
+      goal: 'Name any note on the D, G, B and high e strings, using low E and A.',
+      learn: [
+        'You already know low E and A. Every other note can be found from them.',
         'The <b>octave shape</b>: two strings up, two frets higher gives the same note. Landing on the B or high e string? Go <b>three</b> frets higher.',
         'To name a note on D, G, B or high e, run the octave shape <b>backwards</b> until you reach low E or A.',
+        'High e is the easy one: it has exactly the same notes as low E, fret for fret.',
       ],
-      figures: [{ title: 'Landmark notes', fn: fig.landmarks }, { title: 'The octave shape', fn: fig.octaves }],
-      know: q1,
-      play: {
-        title: 'Note hunt', how: ['Start the metronome. A note name appears.', 'Find it on each string from low E upwards, saying the name out loud as you play it.', 'Keep going when the next note appears. Don\'t stop to fix mistakes.'],
-        levels: [{ label: 'Level 1', detail: 'Low E and A strings only', bpm: 60, every: 8 }, { label: 'Level 2', detail: 'All six strings', bpm: 60, every: 16 }, { label: 'Level 3', detail: 'All six strings, faster', bpm: 80, every: 12 }],
-        callout: (lvl) => { const pc = lvl === 0 ? pick(NATURALS) : rnd(12); return { big: G.PC_LABEL[pc], small: lvl === 0 ? 'low E and A' : 'every string' }; },
-        pass: 'Ten notes in a row without stopping.',
-      },
-      use: { track: 'A minor backing track slow', rules: [
-        'Use only the notes A, C, D, E and G (they all fit the track), on the low E and A strings, frets 0–12. Say each note name before you play it.',
-        'Play only C. Find it on all six strings and play them in rhythm with the track. Then do the same with E.',
-        'Stay on the A string, frets 0 to 12. Make a slow melody from A, C, D, E and G, naming every note.',
-        'Play a short phrase on the low E string using A, C, D, E and G. Then play the same notes one octave up with the octave shape (two strings up, two frets higher).',
-      ] },
-      test: { n: 20, pass: 18, maxAvg: 5, playLevel: 2 },
+      figures: [{ title: 'The octave shape', fn: fig.octaves }],
+      know: q1c,
+      use: { track: 'A minor backing track slow', rules: USE_NOTES_3 },
+      test: { n: 15, pass: 13, maxAvg: 8, playLevel: 2 },
     },
     {
       id: 'intervals', group: 'Foundations', title: 'Intervals', course: 'Module 1 · Intervals', light: true,
@@ -928,16 +1015,34 @@ const STAGES = (function (G) {
 
   const PLAYS = {
     notes: {
-      title: 'Note hunt',
-      how: ['Start the metronome. A note appears, and the string to play it on lights up.', 'Find that note on the lit string (frets 0–12) and play it. Say the name out loud. If it\'s there twice (like open and fret 12), either one counts.', 'Halfway through, the answer appears on the fretboard as a check. Try to be there before it shows.', 'Don’t stop to fix mistakes. Move on with the next call.'],
-      levels: [{ label: 'Level 1', detail: 'Natural notes (no sharps or flats) on low E and A', bpm: 60, every: 8 }, { label: 'Level 2', detail: 'All 12 notes on low E and A', bpm: 60, every: 8 }, { label: 'Level 3', detail: 'All 12 notes on all six strings', bpm: 70, every: 8 }],
+      title: 'Note hunt: plain notes',
+      how: ['Start the metronome. A note appears, and the string to play it on lights up (low E or A).', 'Find that note on the lit string (frets 0–12) and play it. Say the name out loud. If it’s there twice (open and fret 12), either one counts.', 'Halfway to the next note, the answer appears on the fretboard as a check. Try to be there before it shows.', 'Don’t stop to fix mistakes. Move on with the next note.'],
+      levels: [{ label: 'Level 1', detail: 'Slow: a new note every 8 clicks', bpm: 60, every: 8 }, { label: 'Level 2', detail: 'Medium: every 6 clicks', bpm: 70, every: 6 }, { label: 'Level 3', detail: 'Fast: every 4 clicks', bpm: 80, every: 4 }],
       callout: (lvl, st) => fresh(st, (r) => r.big + r.where, () => {
-        const s = lvl < 2 ? pick([0, 1]) : rnd(6);
-        const pc = lvl === 0 ? pick(NATURALS) : rnd(12);
-        const fr = fretsOn(pc, s);
+        const s = pick([0, 1]); const pc = pick(NATURALS); const fr = fretsOn(pc, s);
         return { big: G.PC_LABEL[pc], where: SN(s), answer: fretWord(fr), board: lit(s, 0, 12), reveal: fr.map((f) => ({ s, f, kind: 'right', text: G.PC_SHORT[pc] })) };
       }),
-      pass: 'Ten calls in a row where you’re on the right fret before the check appears.',
+      pass: 'Ten notes in a row where you’re on the right fret before the check appears.',
+    },
+    notes2: {
+      title: 'Note hunt: all 12',
+      how: ['Start the metronome. A note appears (in-between notes show both names, like C♯/D♭), and the string lights up.', 'Find it on the lit string and play it. Tip: find the plain note next to it, then step one fret.', 'Halfway to the next note, the answer appears as a check. Try to be there first.', 'Don’t stop to fix mistakes. Move on with the next note.'],
+      levels: [{ label: 'Level 1', detail: 'Slow: a new note every 8 clicks', bpm: 60, every: 8 }, { label: 'Level 2', detail: 'Medium: every 6 clicks', bpm: 70, every: 6 }, { label: 'Level 3', detail: 'Fast: every 4 clicks', bpm: 80, every: 4 }],
+      callout: (lvl, st) => fresh(st, (r) => r.big + r.where, () => {
+        const s = pick([0, 1]); const pc = Math.random() < 0.6 ? pick([1, 3, 6, 8, 10]) : pick(NATURALS); const fr = fretsOn(pc, s);
+        return { big: G.PC_LABEL[pc], where: SN(s), answer: fretWord(fr), board: lit(s, 0, 12), reveal: fr.map((f) => ({ s, f, kind: 'right', text: G.PC_SHORT[pc] })) };
+      }),
+      pass: 'Ten notes in a row where you’re on the right fret before the check appears.',
+    },
+    notes3: {
+      title: 'Note hunt: the other strings',
+      how: ['Start the metronome. A note appears and one of the D, G, B or high e strings lights up.', 'Find the note on that string. Not sure? Find it on low E or A first, then use the octave shape (two strings up, two frets higher; three when you land on B or high e).', 'Halfway to the next note, the answer appears as a check.', 'Don’t stop to fix mistakes. Move on with the next note.'],
+      levels: [{ label: 'Level 1', detail: 'Slow: a new note every 8 clicks', bpm: 60, every: 8 }, { label: 'Level 2', detail: 'Medium: every 8 clicks, faster tempo', bpm: 70, every: 8 }, { label: 'Level 3', detail: 'Fast: every 6 clicks', bpm: 80, every: 6 }],
+      callout: (lvl, st) => fresh(st, (r) => r.big + r.where, () => {
+        const s = pick([2, 3, 4, 5]); const pc = rnd(12); const fr = fretsOn(pc, s);
+        return { big: G.PC_LABEL[pc], where: SN(s), answer: fretWord(fr), board: lit(s, 0, 12), reveal: fr.map((f) => ({ s, f, kind: 'right', text: G.PC_SHORT[pc] })) };
+      }),
+      pass: 'Ten notes in a row where you’re on the right fret before the check appears.',
     },
     intervals: {
       title: 'Interval hop',
@@ -1129,7 +1234,7 @@ const STAGES = (function (G) {
     return { big: String(d), where: `Key of ${G.keyName(k)}${tag}`, answer: `${G.chordName(d, k)}: ${SN(dot.s)}, fret ${dot.f}`, board: { lo, hi, dots: base }, reveal: barreDots(rpc, dot.s, dot.f, G.QUAL[d - 1]).map((x) => (x.s === dot.s && x.f === dot.f ? { ...x, text: String(d) } : { ...x, text: '' })) };
   }
   S.forEach((s) => { if (PLAYS[s.id]) s.play = PLAYS[s.id]; });
-  S.forEach((s, i) => { s.n = i + 1; });
+  S.forEach((s, i) => { s.i = i; s.n = s.sub || String(i - 1); }); // 1.1, 1.2, 1.3, then 2, 3 …
   return S;
 })(GC);
 if (typeof module !== 'undefined') module.exports = STAGES;

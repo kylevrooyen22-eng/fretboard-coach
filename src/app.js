@@ -224,6 +224,18 @@
     }
     return el('div', { class: 'fb-wrap' }, root);
   }
+  /* ---------- the 12 notes as a row of equal blocks (A first), numbered 1–12 ---------- */
+  function noteCycle(mode) {
+    const pcs = [9, 10, 11, 0, 1, 2, 3, 4, 5, 6, 7, 8];
+    const row = el('div', { class: 'cycle ' + mode, role: 'list', 'aria-label': 'The 12 notes in order' }, ...pcs.map((pc, i) => {
+      const parts = G.PC_LABEL[pc].split('/');
+      const nat = parts.length === 1;
+      return el('div', { class: 'cyc' + (nat ? ' nat' : ' acc'), role: 'listitem' }, el('span', { class: 'cyc-n', text: String(i + 1) }),
+        el('span', { class: 'cyc-b' }, ...(nat ? [el('b', { text: parts[0] })] : [el('span', { text: parts[0] }), el('span', { text: parts[1] })])));
+    }));
+    return el('div', { class: 'cycle-wrap' }, row, el('p', { class: 'muted small', text: '…then back to A, and the row repeats all the way up the neck. One block = one fret.' }));
+  }
+
   /* ---------- animated route: the yellow dot is the note to play now, its number is the finger ---------- */
   function pathPlayer(steps) {
     const fs = steps.map((x) => x.f);
@@ -573,7 +585,7 @@
       if (r.missed.length) res.append(el('div', { class: 'missed' }, el('h3', { text: 'Review these' }), ...r.missed.map((m) => el('div', null, el('span', { html: m.prompt }), ' → ', el('b', { text: m.answer })))));
       const done = status(stage.id) === 'passed';
       res.append(el('div', { class: 'row' }, el('button', { class: 'btn', onclick: intro }, 'Back'),
-        done && stage.n < S.length ? el('button', { class: 'btn primary', onclick: () => { P.current = S[stage.n].id; commit(); go('stage', S[stage.n].id); } }, `Stage complete. Start stage ${stage.n + 1}: ${S[stage.n].title}`) : null));
+        done && stage.i < S.length - 1 ? el('button', { class: 'btn primary', onclick: () => { P.current = S[stage.i + 1].id; commit(); go('stage', S[stage.i + 1].id); } }, `Stage complete. Start stage ${S[stage.i + 1].n}: ${S[stage.i + 1].title}`) : null));
       box.append(res);
     }
     intro();
@@ -603,7 +615,7 @@
       const stt = status(st.id);
       const chip = P.current === st.id ? el('span', { class: 'chip current', text: 'Now' }) : stt === 'passed' ? el('span', { class: 'chip passed', text: '✓' }) : stt === 'started' ? el('span', { class: 'chip started', text: 'Started' }) : null;
       list.append(el('button', { class: 'stage-btn', 'aria-current': view.id === st.id && view.name !== 'home' ? 'page' : null, onclick: () => go('stage', st.id) },
-        el('span', { class: 'num', text: String(st.n).padStart(2, '0') }), el('span', { class: 't', text: st.title }), chip));
+        el('span', { class: 'num', text: st.sub || String(st.n).padStart(2, '0') }), el('span', { class: 't', text: st.title }), chip));
     });
     rail.append(list);
     if (sbUser) rail.append(el('div', { class: 'account' }, el('span', { class: 'who', text: sbUser.email || 'Signed in' }),
@@ -652,7 +664,7 @@
     main.append(el('section', { class: 'card stack' },
       el('h3', { text: 'Your progress' }),
       el('div', { class: 'stat' },
-        el('div', null, el('span', { class: 'v', text: `${S.filter((x) => status(x.id) === 'passed').length}/16` }), el('span', { class: 'l', text: 'stages passed' })),
+        el('div', null, el('span', { class: 'v', text: `${S.filter((x) => status(x.id) === 'passed').length}/${S.length}` }), el('span', { class: 'l', text: 'stages passed' })),
         el('div', null, el('span', { class: 'v', text: sessions }), el('span', { class: 'l', text: 'sessions done' })),
         el('div', null, el('span', { class: 'v', text: p.sessions }), el('span', { class: 'l', text: 'sessions on this stage' })),
         el('div', null, el('span', { class: 'v', text: p.playLevel >= 0 ? `Level ${p.playLevel + 1}` : '—' }), el('span', { class: 'l', text: 'play level reached' })),
@@ -684,6 +696,8 @@
           const card = el('section', { class: 'card lesson' },
             el('div', { class: 'lesson-h' }, el('span', { class: 'lesson-n', text: i + 1 }), el('h2', { text: sec.h })),
             ...(sec.p || []).map((t) => el('p', { html: t })));
+          if (sec.cycle) card.append(noteCycle(sec.cycle));
+          (sec.after || []).forEach((t) => card.append(el('p', { html: t })));
           if (sec.table) {
             const [head, ...rows] = sec.table;
             card.append(el('div', { class: 'tbl-wrap' }, el('table', { class: 'mini' },
@@ -708,7 +722,7 @@
   let SES = null;
   function startSession(id) {
     const st = byId(id);
-    const idx = st.n - 1;
+    const idx = st.i;
     const earlier = S.slice(0, idx);
     let pool = earlier.filter((x) => status(x.id) !== 'new');
     if (!pool.length) pool = earlier.slice(-4);
