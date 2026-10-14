@@ -44,19 +44,21 @@ const LESSONS = {
   ],
 
   notes3: [
-    { h: 'You only need low E and A', p: [
-      'You don’t learn the other four strings note by note. You find their notes from the low E and A strings, which you already know, using one shape.' ] },
-    { h: 'The octave shape', p: [
-      'An <b>octave</b> is the same note, just higher. From any note, go <b>up two strings and two frets higher</b>: same note.',
-      'There’s one twist. If you land on the <b>B or high e</b> string, go <b>three</b> frets higher instead. The B string is tuned one fret lower than the pattern, so everything past it shifts by one.' ],
-      ex: 'G on low E fret 3 → two strings up, two frets higher → <b>D string fret 5 is also G</b>.<br>G on D string fret 5 → up two strings to B, three frets higher → <b>B string fret 8 is G</b>.', fig: 0 },
-    { h: 'Naming notes on D, G, B and high e', p: [
-      'Run the octave shape <b>backwards</b>: go two strings down (towards low E) and two frets lower (three frets if you’re starting on B or high e). Repeat until you land on low E or A, where you know the notes.' ],
-      ex: 'What’s on the B string, fret 6? Three frets lower, two strings down: <b>D string fret 3</b>. Two more frets lower, two strings down: <b>low E fret 1 = F</b>. So it’s F.' },
-    { h: 'High e is the easy one', p: [
-      'High e is tuned to the same note as low E, two octaves up. So it has exactly the same notes, fret for fret: low E fret 5 is A, so high e fret 5 is A.' ] },
+    { h: 'Anchor notes on every string', p: [
+      'You don’t need to learn every note. Learn a few <b>anchors</b> per string, mostly on the dot frets, then walk from the nearest one, exactly like you do on low E and A.' ],
+      table: [['', 'Open', 'Fret 1', 'Fret 2', 'Fret 3', 'Fret 5', 'Fret 7', 'Fret 9'], ['high e', 'E', '', '', 'G', 'A', 'B', ''], ['B', 'B', 'C', '', 'D', 'E', '', ''], ['G', 'G', '', 'A', '', 'C', 'D', 'E'], ['D', 'D', '', '', 'F', 'G', 'A', 'B']],
+      ex: '<b>D string</b> frets 5–7–9 = <b>G A B</b>.<br><b>G string</b> frets 5–7–9 = <b>C D E</b>.<br><b>B string</b> frets 1–3–5 = <b>C D E</b>.<br><b>High e</b> = low E, so nothing new there.', fig: 0 },
+    { h: 'The fret-5 rule', p: [
+      'Fret 5 on any string is the <b>open note of the next string up</b>. The one exception is the G string, where it’s <b>fret 4</b> (the same B-string twist you’ll see in the octave shape below). It’s simply how the guitar is tuned, and it makes every open string an anchor too.' ], fig: 1 },
+    { h: 'Walk from the nearest anchor', p: [
+      'Same method as stage 1.1: find the closest anchor, then count. Two frets per letter, one fret at B–C and E–F. For an in-between note, step one fret from a plain note (stage 1.2).' ],
+      ex: 'What’s on the G string, fret 10? Nearest anchor: fret 9 = <b>E</b>. One fret up, and E–F is one fret, so it’s <b>F</b>.' },
+    { h: 'Your backup check: the octave shape', p: [
+      'This is the course’s neat trick, and it’s great for double-checking. From any note, go <b>two strings up and two frets higher</b>: same note, one octave up. Landing on the B or high e string? Go <b>three</b> frets higher instead.',
+      'To check a note on D, G, B or high e, run it <b>backwards</b>: two strings down, two frets lower (three from B or high e), until you reach low E or A, where you know the notes.' ],
+      ex: 'Is G string fret 7 really D? Two strings down, two frets lower: <b>A string fret 5 = D</b>. Yes.', fig: 2 },
     { h: 'Why this matters', p: [
-      'Chord shapes and scales use all six strings. With low E and A plus the octave shape, every note on the neck is two quick steps away.' ] },
+      'Chord shapes and scales use all six strings. With anchors on every string you just know where you are, and the octave shape is there to check yourself when you’re not sure.' ] },
   ],
 
   intervals: [

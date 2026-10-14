@@ -116,6 +116,14 @@
       this.cd = setTimeout(down, 1000);
     },
     stop() { this.on = false; this.counting = 0; clearTimeout(this.cd); clearInterval(this.timer); this.onState && this.onState(); },
+    pluck(midi, delay = 0) {
+      if (!this.ensure()) return;
+      const ctx = this.ctx, t = ctx.currentTime + 0.02 + delay, o = ctx.createOscillator(), g = ctx.createGain(), fl = ctx.createBiquadFilter();
+      o.type = 'sawtooth'; o.frequency.value = 440 * Math.pow(2, (midi - 69) / 12);
+      fl.type = 'lowpass'; fl.frequency.setValueAtTime(2400, t); fl.frequency.exponentialRampToValueAtTime(500, t + 0.5);
+      g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(0.22, t + 0.01); g.gain.exponentialRampToValueAtTime(0.0001, t + 0.9);
+      o.connect(fl).connect(g).connect(ctx.destination); o.start(t); o.stop(t + 1);
+    },
     label() { return this.counting ? `Starting in ${this.counting}…` : this.on ? 'Stop' : 'Start metronome'; },
     countBeep() {
       const ctx = this.ctx, t = ctx.currentTime + 0.01, o = ctx.createOscillator(), g = ctx.createGain();
@@ -465,6 +473,7 @@
     function paint() {
       box.innerHTML = '';
       const L = D.levels[lvl];
+      if (D.kind === 'echo') return paintEcho(L);
       Metro.bpm = L.bpm;
       box.append(el('div', { class: 'row', style: 'justify-content:space-between' }, el('h2', { text: D.title }), el('span', { class: 'eyebrow', text: 'Play it' })));
       box.append(el('div', { class: 'levels' }, ...D.levels.map((x, i) => el('button', { class: 'level', 'aria-pressed': i === lvl ? 'true' : 'false', onclick: () => { lvl = i; Metro.stop(); call = null; paint(); } },
@@ -515,6 +524,59 @@
       box.append(el('div', { class: 'row', style: 'justify-content:space-between;border-top:1px solid var(--line);padding-top:14px' },
         el('p', null, el('b', { text: 'Pass this level: ' }), D.pass),
         el('button', { class: 'btn' + (done ? '' : ' primary'), disabled: done, onclick: () => { p.playLevel = Math.max(p.playLevel, lvl); commit(); if (lvl < 2) lvl++; Metro.stop(); call = null; paint(); } }, done ? `${L.label} done ✓` : `I nailed ${L.label}`)));
+    }
+    // Melody echo: read a short melody (grouped by string), play it, then Reveal to see and hear the answer
+    function paintEcho(L) {
+      Metro.stop(); Metro.onBeat = null; Metro.onState = null;
+      box.append(el('div', { class: 'row', style: 'justify-content:space-between' }, el('h2', { text: D.title }), el('span', { class: 'eyebrow', text: 'Play it' })));
+      box.append(el('div', { class: 'levels' }, ...D.levels.map((x, i) => el('button', { class: 'level', 'aria-pressed': i === lvl ? 'true' : 'false', onclick: () => { lvl = i; paint(); } },
+        el('span', { class: 'lv' }, el('span', { text: x.label }), p.playLevel >= i ? el('span', { class: 'done', text: '✓ done' }) : null),
+        el('span', { text: x.detail })))));
+      box.append(el('ol', { class: 'how' }, ...D.how.map((t) => el('li', { html: t }))));
+      const melBox = el('div', { class: 'mel' }), boardBox = el('div');
+      const echoCard = el('div', { class: 'callout echo' }, melBox, boardBox);
+      box.append(echoCard);
+      let M = null, timers = [];
+      const board = (upto) => {
+        const dots = upto < 0 ? [] : M.seq.slice(0, upto + 1).map((x, i) => ({ s: x.s, f: x.f, kind: i === upto ? 'target' : 'right', text: G.PC_SHORT[x.pc] }));
+        boardBox.innerHTML = ''; boardBox.append(fretboard({ lo: 0, hi: 12, bands: M.strings, dots }, { label: 'Melody' }));
+      };
+      const fresh = () => {
+        timers.forEach(clearTimeout); timers = [];
+        M = D.echo(lvl);
+        melBox.innerHTML = '';
+        M.strings.forEach((s, g) => {
+          if (g) melBox.append(el('span', { class: 'arrow', text: '→' }));
+          melBox.append(el('div', { class: 'grp' }, el('span', { class: 'grp-s', text: G.STRING_NAMES[s] + ' string' }),
+            el('div', { class: 'grp-n' }, ...M.seq.filter((x) => x.g === g).map((x) => el('span', { class: 'nt', text: G.PC_SHORT[x.pc] })))));
+        });
+        board(-1);
+      };
+      const reveal = () => {
+        timers.forEach(clearTimeout); timers = [];
+        const nts = melBox.querySelectorAll('.nt');
+        nts.forEach((n) => n.classList.remove('on', 'done'));
+        M.seq.forEach((x, i) => timers.push(setTimeout(() => {
+          if (!box.isConnected) return;
+          nts.forEach((n, j) => { n.classList.toggle('on', j === i); if (j < i) n.classList.add('done'); });
+          board(i); Metro.pluck(x.midi);
+          if (i === M.seq.length - 1) timers.push(setTimeout(() => nts.forEach((n) => { n.classList.remove('on'); n.classList.add('done'); }), 600));
+        }, 150 + i * 650)));
+      };
+      const revealBtn = el('button', { class: 'btn primary', onclick: reveal }, 'Reveal');
+      const nextBtn = el('button', { class: 'btn', onclick: fresh }, 'New melody');
+      echoCard.append(el('div', { class: 'row', style: 'gap:8px' }, revealBtn, nextBtn, el('span', { class: 'muted small', text: 'Keys: R = reveal, N = new melody' })));
+      keyHandler = (e) => { if (e.key === 'r' || e.key === 'R') reveal(); else if (e.key === 'n' || e.key === 'N') fresh(); };
+      fresh();
+      if (stage.figures[0]) {
+        const det = el('details', null, el('summary', { class: 'muted', style: 'cursor:pointer', text: 'Show the anchor diagram' }));
+        det.addEventListener('toggle', () => { if (det.open && det.children.length === 1) det.append(figure(stage.figures[0], stage)); });
+        box.append(det);
+      }
+      const done = p.playLevel >= lvl;
+      box.append(el('div', { class: 'row', style: 'justify-content:space-between;border-top:1px solid var(--line);padding-top:14px' },
+        el('p', null, el('b', { text: 'Pass this level: ' }), D.pass),
+        el('button', { class: 'btn' + (done ? '' : ' primary'), disabled: done, onclick: () => { p.playLevel = Math.max(p.playLevel, lvl); commit(); if (lvl < 2) lvl++; paint(); } }, done ? `${L.label} done ✓` : `I nailed ${L.label}`)));
     }
     paint();
     return box;
@@ -644,7 +706,7 @@
     const rule = st.use.rules[(p.ruleIdx || 0) % st.use.rules.length];
     return el('div', { class: 'week' },
       el('div', { class: 'item' }, el('span', { class: 'eyebrow', text: 'Know it' }), el('span', null, `${st.test.n} questions on the Know it tab each day. Aim for ${st.test.pass}+ right.`)),
-      el('div', { class: 'item' }, el('span', { class: 'eyebrow', text: 'Play it' }), el('span', null, el('b', { text: st.play.title }), ` · ${L.label}: ${L.detail}, ${L.bpm} bpm.`)),
+      el('div', { class: 'item' }, el('span', { class: 'eyebrow', text: 'Play it' }), el('span', null, el('b', { text: st.play.title }), ` · ${L.label}: ${L.detail}` + (L.bpm ? `, ${L.bpm} bpm.` : '.'))),
       el('div', { class: 'item' }, el('span', { class: 'eyebrow', text: 'Use it' }), el('span', { html: ruleText(rule) })),
       el('div', { class: 'item' }, el('span', { class: 'eyebrow', text: 'Ready?' }), el('span', null, `Take the ready test once you’ve nailed ${st.play.levels[st.test.playLevel].label}.`)));
   }
