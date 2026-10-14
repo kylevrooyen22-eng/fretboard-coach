@@ -115,9 +115,10 @@ const STAGES = (function (G) {
     const len = [4, 6, 8][level], nG = [1, 2, 3][level];
     for (let tries = 0; tries < 800; tries++) {
       const up = Math.random() < 0.55;
-      const first = 2 + rnd(4);
+      const lowest = level === 2 ? 0 : 2; // Level 3 uses all six strings; Levels 1–2 stay on D, G, B and high e
+      const first = lowest + rnd(6 - lowest);
       const strings = [...Array(nG)].map((_, i) => first + (up ? i : -i));
-      if (strings.some((x) => x < 2 || x > 5)) continue;
+      if (strings.some((x) => x < lowest || x > 5)) continue;
       const sizes = nG === 1 ? [len] : nG === 2 ? [3, 3] : [3, 3, 2];
       let pitch = G.OPEN_MIDI[strings[0]] + 1 + rnd(9); while (!melIn(pitch)) pitch++;
       const seq = []; let ok = true;
@@ -1081,7 +1082,7 @@ const STAGES = (function (G) {
     notes3: {
       title: 'Melody echo', kind: 'echo',
       how: ['Read the melody: the notes, and the string each group is played on. Only those strings light up.', 'Play it on the lit strings, at your own pace. Find every note yourself, using your anchors.', 'Press <b>Reveal</b>: the frets light up in order and the melody plays, so you can hear if yours matched. Then <b>New melody</b>.'],
-      levels: [{ label: 'Level 1', detail: '4 notes on one string' }, { label: 'Level 2', detail: '6 notes over two strings' }, { label: 'Level 3', detail: '8 notes over three strings' }],
+      levels: [{ label: 'Level 1', detail: '4 notes on one string' }, { label: 'Level 2', detail: '6 notes over two strings' }, { label: 'Level 3', detail: '8 notes over three strings, any of the six' }],
       echo: (lvl) => makeMelody(lvl),
       pass: 'Five melodies in a row played right before you press Reveal.',
     },
