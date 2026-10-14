@@ -3,69 +3,40 @@
 const LESSONS = {
   notes: [
     { h: 'Before you start', p: [
-      '<b>The strings</b>, from thickest to thinnest: <b>low E, A, D, G, B, high e</b>. The thickest one, low E, is the one closest to your face when you hold the guitar. The A string is right next to it.',
-      '<b>Frets</b> are the metal bars across the neck. "Fret 5" means: press the string just behind the 5th metal bar, counting from the headstock end. Pressing close to the bar (not on top of it) gives a clean note.',
-      '<b>Open</b> (or fret 0) means: play the string without pressing anything.',
-      '<b>The diagrams</b> show the neck as if the guitar is lying face-up in front of you, headstock on the left: the thin high e string at the top, the thick low E at the bottom. Fret numbers run along the bottom.' ] },
-    { h: 'There are only 12 notes', p: [
-      'All Western music uses just 12 notes. They repeat over and over, higher and lower, all the way up the neck. On the guitar, every fret moves you one step along this row:' ],
+      '<b>Strings</b>, thick to thin: <b>low E, A, D, G, B, high e</b>. Low E is the one nearest your face.',
+      '<b>Fret 5</b> = press just behind the 5th metal bar, counting from the headstock. <b>Open</b> (fret 0) = play the string without pressing. <b>Higher</b> = a higher fret number, towards the body.',
+      '<b>Diagrams</b>: headstock on the left, thick low E at the bottom, thin high e at the top.' ] },
+    { h: '7 letters, one rule', p: [
+      'There are 12 notes, and every fret moves you one step along this row:' ],
       cycle: 'plain',
-      after: ['Seven of them have plain letter names: <b>A B C D E F G</b>. After G you go back to A. The five in between (the faded ones) are stage 1.2. In this stage you only need the seven plain ones.'] },
-    { h: 'The one rule: B–C and E–F', p: [
-      'Look at the row again: most letters have a note in between them, so they’re <b>two frets apart</b>. Two pairs don’t: <b>B to C</b> and <b>E to F</b> are only <b>one fret apart</b>.',
-      'That’s the only rule you need. Everything else is counting frets.' ],
-      ex: 'On the low E string: open = <b>E</b>, fret 1 = <b>F</b> (E to F is one fret), fret 3 = <b>G</b> (F to G is two frets).' },
-    { h: 'Directions used in this app', p: [
-      '<b>Up a string</b> means towards the thin high e string (the one nearest the floor). <b>Down a string</b> means towards the thick low E.',
-      '<b>Higher</b>, <b>above</b> or <b>up the neck</b> means a higher fret number, towards the guitar body. <b>Lower</b> or <b>below</b> means a lower fret number, towards the headstock.' ] },
-    { h: 'Walk the letters up the neck', p: [
-      'Start on the open string and walk up the neck along that one string: two frets for each letter, one fret at B → C and E → F. Fret 12 is the open note again, one <b>octave</b> higher: the same note, just higher-sounding.' ],
-      table: [['', 'open', '→', '→', '→', '→', '→', '→', 'fret 12'], ['Low E', 'E (0)', 'F (1)', 'G (3)', 'A (5)', 'B (7)', 'C (8)', 'D (10)', 'E (12)'], ['A string', 'A (0)', 'B (2)', 'C (3)', 'D (5)', 'E (7)', 'F (8)', 'G (10)', 'A (12)']], fig: 0 },
-    { h: 'Landmarks: shortcuts so you don’t always start from zero', p: [
-      'Learn four frets on each string by heart, then walk from the nearest one. They sit on the dot frets, so they’re easy to see.' ],
+      after: ['This stage only uses the seven plain letters: <b>A B C D E F G</b>. Letters are <b>two frets apart</b>, except <b>B–C</b> and <b>E–F</b>, which are <b>one fret apart</b>.'],
+      ex: 'Low E string: open = <b>E</b>, fret 1 = <b>F</b> (E–F is one fret), fret 3 = <b>G</b> (F–G is two frets).' },
+    { h: 'Landmarks, then walk', p: [
+      'Memorise four frets on each string. For any other note, start at the nearest landmark and walk the letters. Fret 12 is the open note again, one <b>octave</b> higher (same note, higher sound).' ],
       table: [['', 'Fret 3', 'Fret 5', 'Fret 7', 'Fret 12'], ['Low E', 'G', 'A', 'B', 'E'], ['A string', 'C', 'D', 'E', 'A']],
-      ex: 'Need D on the low E string? Fret 7 is B. Walk up: C (fret 8, one fret, because B–C), D (fret 10).' },
-    { h: 'Why this matters', p: [
-      'Every chord and scale later in the course starts with "find the root on low E or A". If finding these notes is slow, everything after it is slow. Speed isn’t the goal yet. A reliable method you never have to guess at is.' ] },
+      ex: 'D on low E: fret 7 is B. Walk up: C (fret 8, one fret, because B–C), D (fret 10).', fig: 0 },
   ],
 
   notes2: [
-    { h: 'The five in-between notes', p: [
-      'Back to the row of 12. The highlighted blocks are the five notes between the letters:' ],
+    { h: 'The in-between notes: ♯ and ♭', p: [
+      'The five highlighted blocks are the notes between the letters:' ],
       cycle: 'between',
-      after: ['They don’t get their own letter. They borrow the name of a neighbour instead.'] },
-    { h: 'Sharp and flat: two names, one fret', p: [
-      '<b>♯ (sharp)</b> means one fret higher. <b>♭ (flat)</b> means one fret lower.',
-      'So the note between C and D is <b>C♯</b> (one fret above C) and also <b>D♭</b> (one fret below D). Same fret, same sound, two names. Which name gets used depends on the key, which comes later. For now, know both.' ],
-      ex: 'Low E string: G is fret 3 and A is fret 5. Fret 4 is <b>G♯</b>, and also <b>A♭</b>.' },
-    { h: 'Not at B–C and E–F', p: [
-      'B and C sit right next to each other, and so do E and F. There’s no fret between them, so there’s no in-between note there.' ] },
-    { h: 'How to find any sharp or flat', p: [
-      'Find the plain note first (stage 1.1), then step one fret: up for ♯, down for ♭.' ],
-      ex: 'D♯ on low E: D is fret 10, so D♯ is <b>fret 11</b>. Or: E is fret 12, so E♭ is fret 11. Same fret, two ways to get there.', fig: 0 },
-    { h: 'The full landmark map', p: [
-      'Add fret 9 to your landmarks. It’s the one landmark that lands on an in-between note.' ],
-      table: [['', 'Fret 3', 'Fret 5', 'Fret 7', 'Fret 9', 'Fret 12'], ['Low E', 'G', 'A', 'B', 'C♯', 'E'], ['A string', 'C', 'D', 'E', 'F♯', 'A']], fig: 1 },
+      after: ['<b>♯ (sharp)</b> = one fret up. <b>♭ (flat)</b> = one fret down. So the fret between C and D is <b>C♯</b> and also <b>D♭</b>: one sound, two names. There’s no in-between note at B–C or E–F.'] },
+    { h: 'How to find one', p: [
+      'Find the plain note, then step one fret: up for ♯, down for ♭.' ],
+      ex: 'D♯ on low E: D is fret 10, so D♯ is <b>fret 11</b>. Or: E is fret 12, so E♭ is fret 11. Same fret.', fig: 0 },
+    { h: 'One new landmark: fret 9', p: [
+      'Fret 9 is the only landmark that lands on an in-between note: <b>low E fret 9 = C♯</b>, <b>A string fret 9 = F♯</b>.' ], fig: 1 },
   ],
 
   notes3: [
-    { h: 'Anchor notes on every string', p: [
-      'You don’t need to learn every note. Learn a few <b>anchors</b> per string, mostly on the dot frets, then walk from the nearest one, exactly like you do on low E and A. Every open string is an anchor too (it’s the string’s own name).',
-      'Take it in two halves: first the <b>D and G</b> strings (Know it Step 1, Melody echo Level 1), then <b>B and high e</b> (Step 2, Level 2). After that, mix everything.' ],
-      table: [['', 'Fret 1', 'Fret 2', 'Fret 3', 'Fret 5', 'Fret 7', 'Fret 9'], ['high e', '', '', 'G', 'A', 'B', ''], ['B', 'C', '', 'D', 'E', '', ''], ['G', '', 'A', '', 'C', 'D', 'E'], ['D', '', '', 'F', 'G', 'A', 'B']],
-      ex: '<b>D string</b> frets 5–7–9 = <b>G A B</b>.<br><b>G string</b> frets 5–7–9 = <b>C D E</b>.<br><b>B string</b> frets 1–3–5 = <b>C D E</b>.<br><b>High e</b> = low E, so nothing new there.', fig: 0 },
-    { h: 'The fret-5 rule', p: [
-      'Fret 5 on any string is the <b>open note of the next string up</b>. The one exception is the G string, where it’s <b>fret 4</b> (the same B-string twist you’ll see in the octave shape below). It’s simply how the guitar is tuned, and it makes every open string an anchor too.' ], fig: 1 },
-    { h: 'Walk from the nearest anchor', p: [
-      'Same method as stage 1.1: find the closest anchor, then count. Two frets per letter, one fret at B–C and E–F. For an in-between note, step one fret from a plain note (stage 1.2).' ],
-      ex: 'What’s on the G string, fret 10? Nearest anchor: fret 9 = <b>E</b>. One fret up, and E–F is one fret, so it’s <b>F</b>.' },
-    { h: 'Your backup check: the octave shape', p: [
-      'This is the course’s neat trick, and it’s great for double-checking. From any note, go <b>two strings up and two frets higher</b>: same note, one octave up. Landing on the B or high e string? Go <b>three</b> frets higher instead.',
-      'To check a note on D, G, B or high e, run it <b>backwards</b>: two strings down, two frets lower (three from B or high e), until you reach low E or A, where you know the notes.',
-      'Near the nut, stepping back can go below fret 0. Then <b>add 12 first</b>: B string fret 1 is the same note as fret 13, so three frets lower lands on D string fret 10.' ],
-      ex: 'Is G string fret 7 really D? Two strings down, two frets lower: <b>A string fret 5 = D</b>. Yes.', fig: 2 },
-    { h: 'Why this matters', p: [
-      'Chord shapes and scales use all six strings. With anchors on every string you just know where you are, and the octave shape is there to check yourself when you’re not sure.' ] },
+    { h: 'Anchors, then walk', p: [
+      'Learn three anchors per string, then walk from the nearest one, the same as on low E and A. High e is easy: it has exactly the same notes as low E.' ],
+      ex: '<b>D string</b> frets 5–7–9 = <b>G A B</b><br><b>G string</b> frets 5–7–9 = <b>C D E</b><br><b>B string</b> frets 1–3–5 = <b>C D E</b><br>Walk example: G string fret 10? Fret 9 is E, one fret up (E–F) = <b>F</b>.', fig: 0 },
+    { h: 'Not sure? Check with the octave shape', p: [
+      '<b>Up a string</b> means towards the thin high e. From any note, go <b>two strings up and two frets higher</b>: the same note, one octave up. Landing on B or high e? Go <b>three</b> frets higher.',
+      'To check a note, run it backwards (two strings down, two frets lower; three from B or high e) until you reach low E or A, where you know the notes.' ],
+      ex: 'Is G string fret 7 really D? Two strings down, two frets lower: <b>A string fret 5 = D</b>. Yes.', fig: 1 },
   ],
 
   intervals: [
