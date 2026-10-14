@@ -2,6 +2,11 @@
 // Each section: { h: heading, p: [paragraphs (html)], ex: example (html), table: [[...row], ...], fig: index of the stage figure to show after it }
 const LESSONS = {
   notes: [
+    { h: 'Before you start', p: [
+      '<b>The strings</b>, from thickest to thinnest: <b>low E, A, D, G, B, high e</b>. The thickest one, low E, is the one closest to your face when you hold the guitar. The A string is right next to it.',
+      '<b>Frets</b> are the metal bars across the neck. "Fret 5" means: press the string just behind the 5th metal bar, counting from the headstock end. Pressing close to the bar (not on top of it) gives a clean note.',
+      '<b>Open</b> (or fret 0) means: play the string without pressing anything.',
+      '<b>The diagrams</b> show the neck as if the guitar is lying face-up in front of you, headstock on the left: the thin high e string at the top, the thick low E at the bottom. Fret numbers run along the bottom.' ] },
     { h: 'There are only 12 notes', p: [
       'All Western music uses just 12 notes. They repeat over and over, higher and lower, all the way up the neck. On the guitar, every fret moves you one step along this row:' ],
       cycle: 'plain',
@@ -13,8 +18,8 @@ const LESSONS = {
     { h: 'Directions used in this app', p: [
       '<b>Up a string</b> means towards the thin high e string (the one nearest the floor). <b>Down a string</b> means towards the thick low E.',
       '<b>Higher</b>, <b>above</b> or <b>up the neck</b> means a higher fret number, towards the guitar body. <b>Lower</b> or <b>below</b> means a lower fret number, towards the headstock.' ] },
-    { h: 'Walk the letters up a string', p: [
-      'Start on the open string and walk up: two frets for each letter, one fret at B → C and E → F. Fret 12 is the open note again, one octave higher.' ],
+    { h: 'Walk the letters up the neck', p: [
+      'Start on the open string and walk up the neck along that one string: two frets for each letter, one fret at B → C and E → F. Fret 12 is the open note again, one <b>octave</b> higher: the same note, just higher-sounding.' ],
       table: [['', 'open', '→', '→', '→', '→', '→', '→', 'fret 12'], ['Low E', 'E (0)', 'F (1)', 'G (3)', 'A (5)', 'B (7)', 'C (8)', 'D (10)', 'E (12)'], ['A string', 'A (0)', 'B (2)', 'C (3)', 'D (5)', 'E (7)', 'F (8)', 'G (10)', 'A (12)']], fig: 0 },
     { h: 'Landmarks: shortcuts so you don’t always start from zero', p: [
       'Learn four frets on each string by heart, then walk from the nearest one. They sit on the dot frets, so they’re easy to see.' ],
@@ -45,8 +50,9 @@ const LESSONS = {
 
   notes3: [
     { h: 'Anchor notes on every string', p: [
-      'You don’t need to learn every note. Learn a few <b>anchors</b> per string, mostly on the dot frets, then walk from the nearest one, exactly like you do on low E and A.' ],
-      table: [['', 'Open', 'Fret 1', 'Fret 2', 'Fret 3', 'Fret 5', 'Fret 7', 'Fret 9'], ['high e', 'E', '', '', 'G', 'A', 'B', ''], ['B', 'B', 'C', '', 'D', 'E', '', ''], ['G', 'G', '', 'A', '', 'C', 'D', 'E'], ['D', 'D', '', '', 'F', 'G', 'A', 'B']],
+      'You don’t need to learn every note. Learn a few <b>anchors</b> per string, mostly on the dot frets, then walk from the nearest one, exactly like you do on low E and A. Every open string is an anchor too (it’s the string’s own name).',
+      'Take it in two halves: first the <b>D and G</b> strings (Know it Step 1, Melody echo Level 1), then <b>B and high e</b> (Step 2, Level 2). After that, mix everything.' ],
+      table: [['', 'Fret 1', 'Fret 2', 'Fret 3', 'Fret 5', 'Fret 7', 'Fret 9'], ['high e', '', '', 'G', 'A', 'B', ''], ['B', 'C', '', 'D', 'E', '', ''], ['G', '', 'A', '', 'C', 'D', 'E'], ['D', '', '', 'F', 'G', 'A', 'B']],
       ex: '<b>D string</b> frets 5–7–9 = <b>G A B</b>.<br><b>G string</b> frets 5–7–9 = <b>C D E</b>.<br><b>B string</b> frets 1–3–5 = <b>C D E</b>.<br><b>High e</b> = low E, so nothing new there.', fig: 0 },
     { h: 'The fret-5 rule', p: [
       'Fret 5 on any string is the <b>open note of the next string up</b>. The one exception is the G string, where it’s <b>fret 4</b> (the same B-string twist you’ll see in the octave shape below). It’s simply how the guitar is tuned, and it makes every open string an anchor too.' ], fig: 1 },
@@ -55,7 +61,8 @@ const LESSONS = {
       ex: 'What’s on the G string, fret 10? Nearest anchor: fret 9 = <b>E</b>. One fret up, and E–F is one fret, so it’s <b>F</b>.' },
     { h: 'Your backup check: the octave shape', p: [
       'This is the course’s neat trick, and it’s great for double-checking. From any note, go <b>two strings up and two frets higher</b>: same note, one octave up. Landing on the B or high e string? Go <b>three</b> frets higher instead.',
-      'To check a note on D, G, B or high e, run it <b>backwards</b>: two strings down, two frets lower (three from B or high e), until you reach low E or A, where you know the notes.' ],
+      'To check a note on D, G, B or high e, run it <b>backwards</b>: two strings down, two frets lower (three from B or high e), until you reach low E or A, where you know the notes.',
+      'Near the nut, stepping back can go below fret 0. Then <b>add 12 first</b>: B string fret 1 is the same note as fret 13, so three frets lower lands on D string fret 10.' ],
       ex: 'Is G string fret 7 really D? Two strings down, two frets lower: <b>A string fret 5 = D</b>. Yes.', fig: 2 },
     { h: 'Why this matters', p: [
       'Chord shapes and scales use all six strings. With anchors on every string you just know where you are, and the octave shape is there to check yourself when you’re not sure.' ] },

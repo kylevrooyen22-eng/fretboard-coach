@@ -345,12 +345,16 @@
   function quiz({ gens, mode = 'practice', n = 0, onDone, onAnswer, label }) {
     const box = el('div', { class: 'stack' });
     let q, t0, answered = false, count = 0, right = 0, times = [], missed = [];
+    const recent = [];
     const tally = el('div', { class: 'scoreline' });
     function paintTally() { tally.textContent = mode === 'test' ? `Question ${count + (answered ? 0 : 1)} of ${n}` : `${right} / ${count} right this round`; }
     function next() {
       if (mode === 'test' && count >= n) return finish();
       const g = gens[Math.floor(Math.random() * gens.length)];
-      q = g(); q.src = g.src || ''; t0 = performance.now(); answered = false; paint();
+      const keyOf = (x) => x.prompt + '|' + JSON.stringify((x.board && x.board.dots) || []);
+      for (let tries = 0; tries < 12; tries++) { q = g(); if (!recent.includes(keyOf(q))) break; }
+      recent.push(keyOf(q)); if (recent.length > 6) recent.shift();
+      q.src = g.src || ''; t0 = performance.now(); answered = false; paint();
     }
     function answer(ok, chosenLabel) {
       if (answered) return; answered = true;
@@ -438,6 +442,7 @@
     function paintCheat() {
       cheatBox.innerHTML = '';
       const st = stage.knowSteps[p.knowStep];
+      if (!st.rows) return;
       const det = el('details', { class: 'cheat' });
       det.open = !p.cheatHidden[p.knowStep];
       det.append(el('summary', { text: `Cheat card · ${st.label}` }));

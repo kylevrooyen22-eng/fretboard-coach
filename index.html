@@ -224,7 +224,7 @@ ol.how li::marker { color: var(--tint); font-weight: 700; }
 .cyc-b { width: 100%; aspect-ratio: 1 / 1.15; border-radius: 10px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px; background: var(--fill-2); font: 600 .8rem/1.1 var(--f-round); }
 .cyc.nat .cyc-b { background: var(--tint-soft); color: var(--tint); }
 .cyc.nat .cyc-b b { font-size: 1.15rem; }
-.cycle.plain .cyc.acc .cyc-b { color: var(--muted); opacity: .6; }
+.cycle.plain .cyc.acc .cyc-b { color: var(--muted); opacity: .35; }
 .cycle.between .cyc.nat .cyc-b { background: var(--fill-2); color: var(--muted); }
 .cycle.between .cyc.acc .cyc-b { background: color-mix(in srgb, var(--minor) 22%, transparent); color: var(--ink); font-weight: 700; }
 @media (max-width: 560px) { .cycle { grid-template-columns: repeat(6, minmax(0, 1fr)); } }
@@ -552,12 +552,13 @@ const STAGES = (function (G) {
   const isNat = (pc) => [0, 2, 4, 5, 7, 9, 11].includes(G.mod(pc));
   const SN1 = (s) => G.STRING_NAMES[s];
   // Explain a plain note on low E / A: nearest landmark (open, 3, 5, 7, 12), then walk the letters
-  function walkExplain(s, f) {
-    const lm = [0, 3, 5, 7, 12].reduce((x, y) => (Math.abs(y - f) < Math.abs(x - f) ? y : x));
-    if (lm === f) return `Fret ${f} on the ${SN1(s)} string is a landmark: ${G.PC_SHORT[G.pcAt(s, f)]}.`;
+  function walkExplain(s, f, lms = [0, 3, 5, 7, 12]) {
+    const lm = lms.reduce((x, y) => (Math.abs(y - f) < Math.abs(x - f) ? y : x));
+    const where = (x) => (x === 0 ? 'the open string' : `fret ${x}`);
+    if (lm === f) return f === 0 ? `The open ${SN1(s)} string is ${G.PC_SHORT[G.pcAt(s, 0)]}.` : `Fret ${f} on the ${SN1(s)} string is a landmark: ${G.PC_SHORT[G.pcAt(s, f)]}.`;
     const dir = f > lm ? 1 : -1, path = [];
-    for (let x = lm; x !== f + dir; x += dir) if (isNat(G.pcAt(s, x))) path.push(`${G.PC_SHORT[G.pcAt(s, x)]} (${x})`);
-    return `Nearest landmark: fret ${lm} = ${G.PC_SHORT[G.pcAt(s, lm)]}. Walk the letters ${dir > 0 ? 'up' : 'down'}: ${path.join(' → ')}. (B–C and E–F are one fret apart, other letters two.)`;
+    for (let x = lm; x !== f + dir; x += dir) if (isNat(G.pcAt(s, x)) || x === lm) path.push(`${G.PC_SHORT[G.pcAt(s, x)]} (${x})`);
+    return `Start from ${where(lm)} = ${G.PC_SHORT[G.pcAt(s, lm)]}. Walk the letters ${dir > 0 ? 'up' : 'down'}: ${path.join(' → ')}. (B–C and E–F are one fret apart, other letters two.)`;
   }
   function sharpExplain(s, f) {
     const below = G.PC_SHORT[G.pcAt(s, f - 1)], above = G.PC_SHORT[G.pcAt(s, f + 1)];
@@ -565,7 +566,7 @@ const STAGES = (function (G) {
   }
   const findQ = (s, pc, hi, explain) => ({
     type: 'click', prompt: `Click a <b>${G.PC_LABEL[pc]}</b> on the <b>${SN1(s)}</b> string.`,
-    board: { lo: 0, hi, dots: [] }, clickString: s,
+    board: { lo: 0, hi, dots: [], bands: [s] }, clickString: s,
     isCorrect: (cs, cf) => cs === s && G.pcAt(cs, cf) === pc,
     solution: [0, 12].map((o) => ({ s, f: G.mod(pc - G.OPEN_PC[s]) + o, kind: 'right', text: G.PC_SHORT[pc] })).filter((d) => d.f <= hi),
     explain,
@@ -602,7 +603,7 @@ const STAGES = (function (G) {
     const sharpF = [...Array(13).keys()].filter((f) => !isNat(G.pcAt(s, f)));
     const f = Math.random() < 0.65 ? pick(sharpF) : rnd(12);
     const pc = G.pcAt(s, f);
-    const ex = isNat(pc) ? walkExplain(s, f) : sharpExplain(s, f);
+    const ex = isNat(pc) ? walkExplain(s, f, [0, 3, 5, 7, 9, 12]) : sharpExplain(s, f);
     return t === 'find' ? findQ(s, pc, 12, `${G.PC_LABEL[pc]} on the ${SN1(s)} string is at fret ${G.mod(pc - G.OPEN_PC[s])}${G.mod(pc - G.OPEN_PC[s]) === 0 ? ' (open) and 12' : ''}. ` + ex) : nameQ(s, f, ALL_CHOICES, ex);
   }
   // 1.3: the D, G, B and high e strings, learned through a few anchor notes per string
@@ -615,16 +616,25 @@ const STAGES = (function (G) {
     const word = (['', 'one', 'two', 'three', 'four', 'five', 'six'][Math.abs(d)] || Math.abs(d)) + (Math.abs(d) === 1 ? ' fret' : ' frets');
     let ex = `Nearest anchor: fret ${lm} = ${pcName(lm)}. ${word[0].toUpperCase() + word.slice(1)} ${d > 0 ? 'up' : 'down'}`;
     ex += ` gives ${G.PC_LABEL[G.pcAt(s, f)].replace('/', ' (also called ') + (isNat(G.pcAt(s, f)) ? '' : ')')}.`;
-    if (s < 5) { const full = G.traceToEA(s, f); ex += ` Check with the octave shape: ${full.map((c) => `${G.STRING_SHORT[c.s]} ${c.f}`).join(' → ')}.`; }
+    if (s < 5) {
+      const full = G.traceToEA(s, f);
+      ex += ` Check with the octave shape: ${full.map((c) => `${G.STRING_SHORT[c.s]} ${c.f}`).join(' → ')}.`;
+      if (full.some((c, i) => i && c.f > full[i - 1].f)) ex += ' (Stepping back went below fret 0, so 12 was added first.)';
+    }
     return ex;
   }
-  function q1c() {
-    const s = weighted([[28, 2], [28, 3], [28, 4], [16, 5]]);
+  function q1c(pool = [2, 3, 4, 5]) {
+    const s = pool.length === 4 ? weighted([[28, 2], [28, 3], [28, 4], [16, 5]]) : pick(pool);
     const onAnchor = Math.random() < 0.5;
     let f;
     const mid = ANCHORS[s].filter((x) => x > 0 && x < 12); // the anchors worth drilling (not the open string / fret 12)
     if (onAnchor) f = pick(mid);
-    else { const lm = pick(ANCHORS[s]); f = lm + pick([-2, -1, 1, 2]); if (f < 1 || f > 11 || ANCHORS[s].includes(f)) f = pick(mid); }
+    else {
+      // a note one or two frets from an anchor; mostly plain notes, an occasional sharp/flat
+      const cands = ANCHORS[s].flatMap((lm) => [-2, -1, 1, 2].map((d) => lm + d)).filter((x) => x >= 1 && x <= 11 && !ANCHORS[s].includes(x));
+      const plain = cands.filter((x) => isNat(G.pcAt(s, x))), acc = cands.filter((x) => !isNat(G.pcAt(s, x)));
+      f = Math.random() < 0.8 && plain.length ? pick(plain) : pick(acc.length ? acc : mid);
+    }
     const pc = G.pcAt(s, f);
     const ex = anchorExplain(s, f);
     if (Math.random() < 0.35 && pc !== G.OPEN_PC[s]) {
@@ -634,18 +644,21 @@ const STAGES = (function (G) {
     return nameQ(s, f, ALL_CHOICES, ex);
   }
 
+  const NOTES3_STEPS = [
+    { label: 'Step 1', detail: 'D and G strings', gen: () => q1c([2, 3]) },
+    { label: 'Step 2', detail: 'B and high e strings', gen: () => q1c([4, 5]) },
+    { label: 'Step 3', detail: 'All four strings mixed', gen: () => q1c() },
+  ];
   /* ---------- Melody echo (1.3 Play it): short tunes from A minor / C major notes, grouped by string ---------- */
   const MEL_SCALE = [9, 11, 0, 2, 4, 5, 7];
   const melIn = (m) => MEL_SCALE.includes(G.mod(m));
   const melStep = (m, steps) => { let x = m, n = Math.abs(steps); const d = Math.sign(steps); while (n > 0) { x += d; if (melIn(x)) n--; } return x; };
   function makeMelody(level) {
     const len = [4, 6, 8][level], nG = [1, 2, 3][level];
-    for (let tries = 0; tries < 800; tries++) {
+    for (let tries = 0; tries < 6000; tries++) {
       const up = Math.random() < 0.55;
-      const lowest = level === 2 ? 0 : 2; // Level 3 uses all six strings; Levels 1–2 stay on D, G, B and high e
-      const first = lowest + rnd(6 - lowest);
-      const strings = [...Array(nG)].map((_, i) => first + (up ? i : -i));
-      if (strings.some((x) => x < lowest || x > 5)) continue;
+      // Level 1: D or G string · Level 2: B and high e · Level 3: any three neighbouring strings of the six
+      const strings = level === 0 ? [pick([2, 3])] : level === 1 ? (up ? [4, 5] : [5, 4]) : (() => { const a = rnd(4); const t = [a, a + 1, a + 2]; return up ? t : t.reverse(); })();
       const sizes = nG === 1 ? [len] : nG === 2 ? [3, 3] : [3, 3, 2];
       let pitch = G.OPEN_MIDI[strings[0]] + 1 + rnd(9); while (!melIn(pitch)) pitch++;
       const seq = []; let ok = true;
@@ -659,9 +672,11 @@ const STAGES = (function (G) {
       const last = seq[seq.length - 1].pc;
       if (last !== 9 && last !== 0) continue; // end on a home note: A (or C)
       if (new Set(seq.map((x) => x.s + ':' + x.f)).size < 3) continue;
+      const fs = seq.map((x) => x.f);
+      if (Math.max(...fs) - Math.min(...fs) > 5) continue; // keep the whole tune within one hand-sized area
       return { seq, strings };
     }
-    return { seq: [{ s: 3, f: 2, pc: 9, g: 0, midi: 57 }, { s: 3, f: 5, pc: 0, g: 0, midi: 60 }, { s: 3, f: 7, pc: 2, g: 0, midi: 62 }, { s: 3, f: 2, pc: 9, g: 0, midi: 57 }], strings: [3] };
+    return { fallback: true, seq: [{ s: 3, f: 2, pc: 9, g: 0, midi: 57 }, { s: 3, f: 5, pc: 0, g: 0, midi: 60 }, { s: 3, f: 7, pc: 2, g: 0, midi: 62 }, { s: 3, f: 2, pc: 9, g: 0, midi: 57 }], strings: [3] };
   }
 
   /* ---------- Stage 2: intervals ---------- */
@@ -1002,8 +1017,8 @@ const STAGES = (function (G) {
 
   /* ---------- Figures ---------- */
   const fig = {
-    anchors: () => { const A = { 0: [3, 5, 7, 12], 1: [3, 5, 7, 12], 2: [3, 5, 7, 9], 3: [2, 5, 7, 9], 4: [1, 3, 5], 5: [3, 5, 7, 12] };
-      return [{ label: 'Anchor notes', caption: 'Orange = the new anchors on D, G and B. Blue = the ones you already know (high e is the same as low E).', spec: { lo: 0, hi: 12, dots: [0, 1, 2, 3, 4, 5].flatMap((s) => A[s].map((f) => ({ s, f, kind: s >= 2 && s <= 4 ? 'root' : 'note', text: G.PC_SHORT[G.pcAt(s, f)] }))) } }]; },
+    anchors: () => { const A = { 0: [3, 5, 7], 1: [3, 5, 7], 2: [3, 5, 7, 9], 3: [2, 5, 7, 9], 4: [1, 3, 5], 5: [3, 5, 7] };
+      return [{ label: 'Anchor notes', caption: 'Colour key: orange = the new anchors to learn on D, G and B. Blue = the ones you already know (high e is the same as low E). Every open string is an anchor too: its own name.', spec: { lo: 0, hi: 12, dots: [0, 1, 2, 3, 4, 5].flatMap((s) => A[s].map((f) => ({ s, f, kind: s >= 2 && s <= 4 ? 'root' : 'note', text: G.PC_SHORT[G.pcAt(s, f)] }))) } }]; },
     fret5: () => [{ label: 'The fret-5 rule', caption: 'Fret 5 = the open note of the next string up. On the G string it’s fret 4.', spec: { lo: 0, hi: 7, dots: [[0, 5], [1, 5], [2, 5], [3, 4], [4, 5]].flatMap(([s, f]) => [{ s, f, kind: 'note', text: G.PC_SHORT[G.pcAt(s, f)] }, { s: s + 1, f: 0, kind: 'root', text: G.PC_SHORT[G.pcAt(s + 1, 0)] }]), links: [[0, 5, 1, 0], [1, 5, 2, 0], [2, 5, 3, 0], [3, 4, 4, 0], [4, 5, 5, 0]] } }],
     naturals: () => [{ label: 'Plain notes on low E and A', caption: 'Two frets between letters, except B → C and E → F (one fret). Orange = the open-string note again at fret 12.', spec: { lo: 0, hi: 12, dots: [0, 1].flatMap((s) => [...Array(13).keys()].filter((f) => isNat(G.pcAt(s, f))).map((f) => ({ s, f, kind: f % 12 === 0 ? 'root' : 'note', text: G.PC_SHORT[G.pcAt(s, f)] }))) } }],
     allTwelve: () => [{ label: 'All 12 on low E and A', caption: 'Blue = plain notes. Purple = in-between notes (shown with their ♯ name; each also has a ♭ name).', spec: { lo: 0, hi: 12, dots: [0, 1].flatMap((s) => [...Array(13).keys()].map((f) => { const pc = G.pcAt(s, f); return { s, f, kind: isNat(pc) ? 'note' : 'minor', text: isNat(pc) ? G.PC_SHORT[pc] : G.PC_LABEL[pc].split('/')[0] }; })) } }],
@@ -1106,7 +1121,7 @@ const STAGES = (function (G) {
       fig: { title: 'Your notes', fn: () => [{ label: 'Low E and A', caption: 'Purple = E♭ (D♯), the blue note. Orange = A.', spec: { lo: 0, hi: 12, dots: [...noteDots([[0, 0], [0, 3], [0, 5], [0, 8], [0, 10], [0, 12], [1, 0], [1, 3], [1, 5], [1, 7], [1, 10], [1, 12]], (s, f) => (G.pcAt(s, f) === 9 ? 'root' : 'note')), { s: 0, f: 11, kind: 'minor', text: 'E♭' }, { s: 1, f: 6, kind: 'minor', text: 'E♭' }] } }] } },
     { title: 'Name every fret on the A string.', text: 'Walk up the <b>A string</b> one fret per beat, from open to fret 12, and say every name. For the in-between notes say both names: "A sharp, or B flat".',
       fig: { title: 'The A string, fret by fret', fn: () => [{ label: 'A string', spec: { lo: 0, hi: 12, dots: [...Array(13).keys()].map((f) => { const pc = G.pcAt(1, f); return { s: 1, f, kind: isNat(pc) ? 'note' : 'minor', text: isNat(pc) ? G.PC_SHORT[pc] : G.PC_LABEL[pc].split('/')[0] }; }) } }] } },
-    { title: 'Sharp up, flat down.', text: 'Pick a plain note on <b>low E</b>, e.g. G at fret 3. Play it, then one fret higher (G♯) and one fret lower (G♭, the same fret as F♯). Say each name. Do it for every plain note on low E and A, skipping the sides with no in-between note (B–C, E–F).',
+    { title: 'Sharp up, flat down.', text: 'Pick a plain note on <b>low E</b>, e.g. G at fret 3. Play it, then one fret higher (G♯) and one fret lower (G♭, the same fret as F♯). Say each name. Do it for every plain note on low E and A, skipping the sides with no in-between note (B–C, E–F). For the open strings, use fret 12 instead (one fret lower is fret 11).',
       fig: { title: 'Example: G on low E', fn: () => [{ label: 'G', caption: 'Fret 2 = G♭ (also F♯) · fret 3 = G · fret 4 = G♯ (also A♭).', spec: { lo: 0, hi: 7, dots: [{ s: 0, f: 2, kind: 'minor', text: 'G♭' }, { s: 0, f: 3, kind: 'root', text: 'G' }, { s: 0, f: 4, kind: 'minor', text: 'G♯' }] } }] } },
   ];
   const USE_NOTES_3 = [
@@ -1166,10 +1181,11 @@ const STAGES = (function (G) {
         '<b>D string</b> frets 5–7–9 = G A B (and fret 3 = F). <b>G string</b> frets 5–7–9 = C D E (and fret 2 = A). <b>B string</b> frets 1–3–5 = C D E.',
         '<b>High e</b> has exactly the same notes as low E, fret for fret.',
         'The <b>fret-5 rule</b>: fret 5 on any string is the open note of the next string up (fret 4 on the G string).',
-        'Backup check, the <b>octave shape</b>: two strings up and two frets higher is the same note (three frets when you land on B or high e). Run it backwards to check a note against low E or A.',
+        'Backup check, the <b>octave shape</b>: two strings up and two frets higher is the same note (three frets when you land on B or high e). Run it backwards to check a note against low E or A. Going below fret 0? Add 12 first.',
+        'Order: start with the D and G strings (Know it Step 1, Melody echo Level 1), then B and high e (Step 2, Level 2), then everything mixed.',
       ],
       figures: [{ title: 'Anchor notes on every string', fn: fig.anchors }, { title: 'The fret-5 rule', fn: fig.fret5 }, { title: 'The octave shape', fn: fig.octaves }],
-      know: q1c,
+      know: () => q1c(), knowSteps: NOTES3_STEPS,
       use: { track: 'A minor backing track slow', rules: USE_NOTES_3 },
       test: { n: 15, pass: 13, maxAvg: 8, playLevel: 2 },
     },
@@ -1589,7 +1605,7 @@ const STAGES = (function (G) {
     notes: {
       title: 'Note hunt: plain notes',
       how: ['Start the metronome. A note appears, and the string to play it on lights up (low E or A).', 'Find that note on the lit string (frets 0–12) and play it. Say the name out loud. If it’s there twice (open and fret 12), either one counts.', 'Halfway to the next note, the answer appears on the fretboard as a check. Try to be there before it shows.', 'Don’t stop to fix mistakes. Move on with the next note.'],
-      levels: [{ label: 'Level 1', detail: 'Slow: a new note every 8 clicks', bpm: 60, every: 8 }, { label: 'Level 2', detail: 'Medium: every 6 clicks', bpm: 70, every: 6 }, { label: 'Level 3', detail: 'Fast: every 4 clicks', bpm: 80, every: 4 }],
+      levels: [{ label: 'Level 1', detail: 'Slow: a new note every 8 clicks', bpm: 60, every: 8 }, { label: 'Level 2', detail: 'Medium: every 8 clicks, faster tempo', bpm: 75, every: 8 }, { label: 'Level 3', detail: 'Fast: every 6 clicks', bpm: 85, every: 6 }],
       callout: (lvl, st) => fresh(st, (r) => r.big + r.where, () => {
         const s = pick([0, 1]); const pc = pick(NATURALS); const fr = fretsOn(pc, s);
         return { big: G.PC_LABEL[pc], where: SN(s), answer: fretWord(fr), board: lit(s, 0, 12), reveal: fr.map((f) => ({ s, f, kind: 'right', text: G.PC_SHORT[pc] })) };
@@ -1599,17 +1615,17 @@ const STAGES = (function (G) {
     notes2: {
       title: 'Note hunt: all 12',
       how: ['Start the metronome. A note appears (in-between notes show both names, like C♯/D♭), and the string lights up.', 'Find it on the lit string and play it. Tip: find the plain note next to it, then step one fret.', 'Halfway to the next note, the answer appears as a check. Try to be there first.', 'Don’t stop to fix mistakes. Move on with the next note.'],
-      levels: [{ label: 'Level 1', detail: 'Slow: a new note every 8 clicks', bpm: 60, every: 8 }, { label: 'Level 2', detail: 'Medium: every 6 clicks', bpm: 70, every: 6 }, { label: 'Level 3', detail: 'Fast: every 4 clicks', bpm: 80, every: 4 }],
+      levels: [{ label: 'Level 1', detail: 'Slow: a new note every 8 clicks', bpm: 60, every: 8 }, { label: 'Level 2', detail: 'Medium: every 8 clicks, faster tempo', bpm: 75, every: 8 }, { label: 'Level 3', detail: 'Fast: every 6 clicks', bpm: 85, every: 6 }],
       callout: (lvl, st) => fresh(st, (r) => r.big + r.where, () => {
         const s = pick([0, 1]); const pc = Math.random() < 0.6 ? pick([1, 3, 6, 8, 10]) : pick(NATURALS); const fr = fretsOn(pc, s);
-        return { big: G.PC_LABEL[pc], where: SN(s), answer: fretWord(fr), board: lit(s, 0, 12), reveal: fr.map((f) => ({ s, f, kind: 'right', text: G.PC_SHORT[pc] })) };
+        return { big: G.PC_LABEL[pc], where: SN(s), answer: fretWord(fr), board: lit(s, 0, 12), reveal: fr.map((f) => ({ s, f, kind: 'right', text: G.PC_LABEL[pc].split('/')[0] })) };
       }),
       pass: 'Ten notes in a row where you’re on the right fret before the check appears.',
     },
     notes3: {
       title: 'Melody echo', kind: 'echo',
-      how: ['Read the melody: the notes, and the string each group is played on. Only those strings light up.', 'Play it on the lit strings, at your own pace. Find every note yourself, using your anchors.', 'Press <b>Reveal</b>: the frets light up in order and the melody plays, so you can hear if yours matched. Then <b>New melody</b>.'],
-      levels: [{ label: 'Level 1', detail: '4 notes on one string' }, { label: 'Level 2', detail: '6 notes over two strings' }, { label: 'Level 3', detail: '8 notes over three strings, any of the six' }],
+      how: ['Read the melody: the notes, and the string each group is played on. Only those strings light up.', 'Play it on the lit strings, at your own pace. Find every note yourself, using your anchors. If a note is the open string, playing it open or at fret 12 both count.', 'Press <b>Reveal</b>: the frets light up in order and the melody plays, so you can hear if yours matched. Then <b>New melody</b>.'],
+      levels: [{ label: 'Level 1', detail: '4 notes on the D or G string' }, { label: 'Level 2', detail: '6 notes on the B and high e strings' }, { label: 'Level 3', detail: '8 notes over three strings, any of the six' }],
       echo: (lvl) => makeMelody(lvl),
       pass: 'Five melodies in a row played right before you press Reveal.',
     },
@@ -1812,6 +1828,11 @@ if (typeof module !== 'undefined') module.exports = STAGES;
 // Each section: { h: heading, p: [paragraphs (html)], ex: example (html), table: [[...row], ...], fig: index of the stage figure to show after it }
 const LESSONS = {
   notes: [
+    { h: 'Before you start', p: [
+      '<b>The strings</b>, from thickest to thinnest: <b>low E, A, D, G, B, high e</b>. The thickest one, low E, is the one closest to your face when you hold the guitar. The A string is right next to it.',
+      '<b>Frets</b> are the metal bars across the neck. "Fret 5" means: press the string just behind the 5th metal bar, counting from the headstock end. Pressing close to the bar (not on top of it) gives a clean note.',
+      '<b>Open</b> (or fret 0) means: play the string without pressing anything.',
+      '<b>The diagrams</b> show the neck as if the guitar is lying face-up in front of you, headstock on the left: the thin high e string at the top, the thick low E at the bottom. Fret numbers run along the bottom.' ] },
     { h: 'There are only 12 notes', p: [
       'All Western music uses just 12 notes. They repeat over and over, higher and lower, all the way up the neck. On the guitar, every fret moves you one step along this row:' ],
       cycle: 'plain',
@@ -1823,8 +1844,8 @@ const LESSONS = {
     { h: 'Directions used in this app', p: [
       '<b>Up a string</b> means towards the thin high e string (the one nearest the floor). <b>Down a string</b> means towards the thick low E.',
       '<b>Higher</b>, <b>above</b> or <b>up the neck</b> means a higher fret number, towards the guitar body. <b>Lower</b> or <b>below</b> means a lower fret number, towards the headstock.' ] },
-    { h: 'Walk the letters up a string', p: [
-      'Start on the open string and walk up: two frets for each letter, one fret at B → C and E → F. Fret 12 is the open note again, one octave higher.' ],
+    { h: 'Walk the letters up the neck', p: [
+      'Start on the open string and walk up the neck along that one string: two frets for each letter, one fret at B → C and E → F. Fret 12 is the open note again, one <b>octave</b> higher: the same note, just higher-sounding.' ],
       table: [['', 'open', '→', '→', '→', '→', '→', '→', 'fret 12'], ['Low E', 'E (0)', 'F (1)', 'G (3)', 'A (5)', 'B (7)', 'C (8)', 'D (10)', 'E (12)'], ['A string', 'A (0)', 'B (2)', 'C (3)', 'D (5)', 'E (7)', 'F (8)', 'G (10)', 'A (12)']], fig: 0 },
     { h: 'Landmarks: shortcuts so you don’t always start from zero', p: [
       'Learn four frets on each string by heart, then walk from the nearest one. They sit on the dot frets, so they’re easy to see.' ],
@@ -1855,8 +1876,9 @@ const LESSONS = {
 
   notes3: [
     { h: 'Anchor notes on every string', p: [
-      'You don’t need to learn every note. Learn a few <b>anchors</b> per string, mostly on the dot frets, then walk from the nearest one, exactly like you do on low E and A.' ],
-      table: [['', 'Open', 'Fret 1', 'Fret 2', 'Fret 3', 'Fret 5', 'Fret 7', 'Fret 9'], ['high e', 'E', '', '', 'G', 'A', 'B', ''], ['B', 'B', 'C', '', 'D', 'E', '', ''], ['G', 'G', '', 'A', '', 'C', 'D', 'E'], ['D', 'D', '', '', 'F', 'G', 'A', 'B']],
+      'You don’t need to learn every note. Learn a few <b>anchors</b> per string, mostly on the dot frets, then walk from the nearest one, exactly like you do on low E and A. Every open string is an anchor too (it’s the string’s own name).',
+      'Take it in two halves: first the <b>D and G</b> strings (Know it Step 1, Melody echo Level 1), then <b>B and high e</b> (Step 2, Level 2). After that, mix everything.' ],
+      table: [['', 'Fret 1', 'Fret 2', 'Fret 3', 'Fret 5', 'Fret 7', 'Fret 9'], ['high e', '', '', 'G', 'A', 'B', ''], ['B', 'C', '', 'D', 'E', '', ''], ['G', '', 'A', '', 'C', 'D', 'E'], ['D', '', '', 'F', 'G', 'A', 'B']],
       ex: '<b>D string</b> frets 5–7–9 = <b>G A B</b>.<br><b>G string</b> frets 5–7–9 = <b>C D E</b>.<br><b>B string</b> frets 1–3–5 = <b>C D E</b>.<br><b>High e</b> = low E, so nothing new there.', fig: 0 },
     { h: 'The fret-5 rule', p: [
       'Fret 5 on any string is the <b>open note of the next string up</b>. The one exception is the G string, where it’s <b>fret 4</b> (the same B-string twist you’ll see in the octave shape below). It’s simply how the guitar is tuned, and it makes every open string an anchor too.' ], fig: 1 },
@@ -1865,7 +1887,8 @@ const LESSONS = {
       ex: 'What’s on the G string, fret 10? Nearest anchor: fret 9 = <b>E</b>. One fret up, and E–F is one fret, so it’s <b>F</b>.' },
     { h: 'Your backup check: the octave shape', p: [
       'This is the course’s neat trick, and it’s great for double-checking. From any note, go <b>two strings up and two frets higher</b>: same note, one octave up. Landing on the B or high e string? Go <b>three</b> frets higher instead.',
-      'To check a note on D, G, B or high e, run it <b>backwards</b>: two strings down, two frets lower (three from B or high e), until you reach low E or A, where you know the notes.' ],
+      'To check a note on D, G, B or high e, run it <b>backwards</b>: two strings down, two frets lower (three from B or high e), until you reach low E or A, where you know the notes.',
+      'Near the nut, stepping back can go below fret 0. Then <b>add 12 first</b>: B string fret 1 is the same note as fret 13, so three frets lower lands on D string fret 10.' ],
       ex: 'Is G string fret 7 really D? Two strings down, two frets lower: <b>A string fret 5 = D</b>. Yes.', fig: 2 },
     { h: 'Why this matters', p: [
       'Chord shapes and scales use all six strings. With anchors on every string you just know where you are, and the octave shape is there to check yourself when you’re not sure.' ] },
@@ -2478,12 +2501,16 @@ const LESSONS = {
   function quiz({ gens, mode = 'practice', n = 0, onDone, onAnswer, label }) {
     const box = el('div', { class: 'stack' });
     let q, t0, answered = false, count = 0, right = 0, times = [], missed = [];
+    const recent = [];
     const tally = el('div', { class: 'scoreline' });
     function paintTally() { tally.textContent = mode === 'test' ? `Question ${count + (answered ? 0 : 1)} of ${n}` : `${right} / ${count} right this round`; }
     function next() {
       if (mode === 'test' && count >= n) return finish();
       const g = gens[Math.floor(Math.random() * gens.length)];
-      q = g(); q.src = g.src || ''; t0 = performance.now(); answered = false; paint();
+      const keyOf = (x) => x.prompt + '|' + JSON.stringify((x.board && x.board.dots) || []);
+      for (let tries = 0; tries < 12; tries++) { q = g(); if (!recent.includes(keyOf(q))) break; }
+      recent.push(keyOf(q)); if (recent.length > 6) recent.shift();
+      q.src = g.src || ''; t0 = performance.now(); answered = false; paint();
     }
     function answer(ok, chosenLabel) {
       if (answered) return; answered = true;
@@ -2571,6 +2598,7 @@ const LESSONS = {
     function paintCheat() {
       cheatBox.innerHTML = '';
       const st = stage.knowSteps[p.knowStep];
+      if (!st.rows) return;
       const det = el('details', { class: 'cheat' });
       det.open = !p.cheatHidden[p.knowStep];
       det.append(el('summary', { text: `Cheat card · ${st.label}` }));
