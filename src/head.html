@@ -206,6 +206,24 @@ ol.how li::marker { color: var(--tint); font-weight: 700; }
 @keyframes pulse { 0%, 100% { stroke-opacity: .9; } 50% { stroke-opacity: .25; } }
 .fb .pulse { animation: pulse 1.1s ease-in-out infinite; }
 [hidden] { display: none !important; }
+.echo-presets { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+.echo-preset { border: 0; border-radius: 999px; padding: 7px 14px; background: var(--fill-2); color: var(--ink); font: 600 .88rem var(--f-body); cursor: pointer; }
+.echo-preset[aria-pressed="true"] { background: var(--tint-soft); color: var(--tint); box-shadow: inset 0 0 0 2px var(--tint); }
+.echo-preset .done { color: var(--good-ink); }
+.echo-ctrl { display: grid; grid-template-columns: auto 1fr; gap: 12px 18px; align-items: center; background: var(--fill-2); border-radius: var(--r); padding: 14px 16px; }
+.echo-lab { font: 700 .78rem var(--f-round); text-transform: uppercase; letter-spacing: .05em; color: var(--muted); }
+.echo-slide { display: flex; align-items: center; gap: 14px; }
+.echo-slide input { flex: 1; max-width: 320px; accent-color: var(--tint); }
+.echo-val { font: 700 1.4rem var(--f-round); min-width: 2ch; }
+.echo-ticks { display: flex; justify-content: space-between; max-width: 320px; font: 600 .7rem var(--f-round); color: var(--muted); padding: 0 4px; }
+.echo-chips { display: flex; gap: 8px; flex-wrap: wrap; }
+.echo-chip { min-width: 46px; height: 40px; border-radius: 12px; border: 0; background: var(--surface); color: var(--muted); font: 700 1rem var(--f-round); cursor: pointer; box-shadow: inset 0 0 0 1.5px var(--line); }
+.echo-chip[aria-pressed="true"] { background: var(--tint); color: #fff; box-shadow: none; }
+.echo-phase { font: 700 .95rem var(--f-round); padding: 6px 12px; border-radius: 999px; background: var(--fill); color: var(--muted); margin-left: auto; }
+.echo-phase.read { background: color-mix(in srgb, var(--target) 30%, transparent); color: var(--ink); }
+.echo-phase.play { background: var(--tint-soft); color: var(--tint); }
+.echo-phase.check { background: color-mix(in srgb, var(--good) 18%, transparent); color: var(--good-ink); }
+.mel .nt.cur { background: var(--tint); color: #fff; transform: scale(1.08); }
 .callout.echo { display: flex; flex-direction: column; gap: 12px; text-align: left; background: transparent; padding: 0; min-height: 0; }
 .mel { display: flex; align-items: flex-end; gap: 18px; flex-wrap: wrap; }
 .mel .grp { display: flex; flex-direction: column; gap: 6px; }

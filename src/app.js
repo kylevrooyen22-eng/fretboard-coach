@@ -116,9 +116,11 @@
       this.cd = setTimeout(down, 1000);
     },
     stop() { this.on = false; this.counting = 0; clearTimeout(this.cd); clearInterval(this.timer); this.onState && this.onState(); },
-    pluck(midi, delay = 0) {
+    // Start/wake the audio engine inside the click itself, so the browser allows sound straight away
+    ready() { if (!this.ensure()) return Promise.resolve(false); return this.ctx.state === 'running' ? Promise.resolve(true) : this.ctx.resume().then(() => true); },
+    pluck(midi, delay = 0, at = null) {
       if (!this.ensure()) return;
-      const ctx = this.ctx, t = ctx.currentTime + 0.02 + delay, o = ctx.createOscillator(), g = ctx.createGain(), fl = ctx.createBiquadFilter();
+      const ctx = this.ctx, t = at != null ? at : ctx.currentTime + 0.02 + delay, o = ctx.createOscillator(), g = ctx.createGain(), fl = ctx.createBiquadFilter();
       o.type = 'sawtooth'; o.frequency.value = 440 * Math.pow(2, (midi - 69) / 12);
       fl.type = 'lowpass'; fl.frequency.setValueAtTime(2400, t); fl.frequency.exponentialRampToValueAtTime(500, t + 0.5);
       g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(0.22, t + 0.01); g.gain.exponentialRampToValueAtTime(0.0001, t + 0.9);
@@ -530,58 +532,146 @@
         el('p', null, el('b', { text: 'Pass this level: ' }), D.pass),
         el('button', { class: 'btn' + (done ? '' : ' primary'), disabled: done, onclick: () => { p.playLevel = Math.max(p.playLevel, lvl); commit(); if (lvl < 2) lvl++; Metro.stop(); call = null; paint(); } }, done ? `${L.label} done ✓` : `I nailed ${L.label}`)));
     }
-    // Melody echo: read a short melody (grouped by string), play it, then Reveal to see and hear the answer
+    // Melody echo: pick notes + strings; auto mode on the metronome (Read it → Play it → Check, locked to whole bars)
     function paintEcho(L) {
       Metro.stop(); Metro.onBeat = null; Metro.onState = null;
-      box.append(el('div', { class: 'row', style: 'justify-content:space-between' }, el('h2', { text: D.title }), el('span', { class: 'eyebrow', text: 'Play it' })));
-      box.append(el('div', { class: 'levels' }, ...D.levels.map((x, i) => el('button', { class: 'level', 'aria-pressed': i === lvl ? 'true' : 'false', onclick: () => { lvl = i; paint(); } },
-        el('span', { class: 'lv' }, el('span', { text: x.label }), p.playLevel >= i ? el('span', { class: 'done', text: '✓ done' }) : null),
-        el('span', { text: x.detail })))));
-      box.append(el('ol', { class: 'how' }, ...D.how.map((t) => el('li', { html: t }))));
-      const melBox = el('div', { class: 'mel' }), boardBox = el('div');
-      const echoCard = el('div', { class: 'callout echo' }, melBox, boardBox);
-      box.append(echoCard);
+      const levels = D.levels;
+      if (!p.echo) { const lv = levels[lvl]; p.echo = { n: lv.n, strings: [...lv.strings], bpm: 60 }; }
+      const E = p.echo, usage = [0, 0, 0, 0, 0, 0];
+      const run = { on: false, counting: 0, next: 0, timer: null, cd: null, plan: null, pos: 0 };
       let M = null, timers = [];
-      const board = (upto) => {
-        const dots = upto < 0 ? [] : M.seq.slice(0, upto + 1).map((x, i) => ({ s: x.s, f: x.f, kind: i === upto ? 'target' : 'right', text: G.PC_SHORT[x.pc] }));
-        boardBox.innerHTML = ''; boardBox.append(fretboard({ lo: 0, hi: 12, bands: M.strings, dots }, { label: 'Melody' }));
+      box.append(el('div', { class: 'row', style: 'justify-content:space-between' }, el('h2', { text: D.title }), el('span', { class: 'eyebrow', text: 'Play it' })));
+      box.append(el('ol', { class: 'how' }, ...D.how.map((t) => el('li', { html: t }))));
+      // presets (also the levels that track progress)
+      const presetRow = el('div', { class: 'echo-presets' });
+      const sameAs = (lv) => lv.n === E.n && lv.strings.length === E.strings.length && lv.strings.every((x) => E.strings.includes(x));
+      const paintPresets = () => {
+        presetRow.innerHTML = '';
+        presetRow.append(el('span', { class: 'muted small', text: 'Presets:' }), ...levels.map((lv, i) => el('button', { class: 'echo-preset', 'aria-pressed': sameAs(lv) ? 'true' : 'false', onclick: () => { E.n = lv.n; E.strings = [...lv.strings]; lvl = i; commit(); syncCtrl(); fresh(); } },
+          `${lv.name}: ${lv.detail}`, p.playLevel >= i ? el('span', { class: 'done', text: ' ✓' }) : null)));
       };
-      const fresh = () => {
+      // controls: note slider + string chips
+      const slider = el('input', { type: 'range', min: 4, max: 8, step: 1, value: E.n, 'aria-label': 'Number of notes' });
+      const nVal = el('span', { class: 'echo-val', text: E.n });
+      const chipBox = el('div', { class: 'echo-chips' }), hint = el('p', { class: 'muted small' });
+      const ctrl = el('div', { class: 'echo-ctrl' },
+        el('span', { class: 'echo-lab', text: 'Notes' }), el('div', null, el('div', { class: 'echo-slide' }, slider, nVal), el('div', { class: 'echo-ticks' }, ...[4, 5, 6, 7, 8].map((t) => el('span', { text: t })))),
+        el('span', { class: 'echo-lab', text: 'Strings' }), chipBox);
+      const syncCtrl = () => {
+        slider.value = E.n; nVal.textContent = E.n;
+        chipBox.innerHTML = '';
+        [5, 4, 3, 2, 1, 0].forEach((s) => chipBox.append(el('button', { class: 'echo-chip', 'aria-pressed': E.strings.includes(s) ? 'true' : 'false', 'aria-label': G.STRING_NAMES[s] + ' string', onclick: () => {
+          if (E.strings.includes(s)) { if (E.strings.length > 1) E.strings = E.strings.filter((x) => x !== s); } else E.strings = [...E.strings, s];
+          commit(); syncCtrl(); fresh(); } }, G.STRING_SHORT[s])));
+        const k = Math.min(E.strings.length, Math.floor(E.n / 2));
+        hint.textContent = E.strings.length > k ? `With ${E.n} notes, each melody uses ${k} of your ${E.strings.length} strings (at least 2 notes per string), rotating so every selected string gets used.` : '';
+        paintPresets(); paintPass();
+      };
+      slider.addEventListener('input', () => { E.n = +slider.value; commit(); syncCtrl(); fresh(); });
+      // auto bar
+      const startBtn = el('button', { class: 'btn primary' }), bpmEl = el('span', { class: 'bpm', text: E.bpm });
+      const phaseEl = el('span', { class: 'echo-phase', text: 'Stopped' }), beatsEl = el('div', { class: 'beats' }, ...[0, 1, 2, 3].map((i) => el('i', { class: i === 0 ? 'accent' : '' })));
+      const setBpm = (d) => { E.bpm = Math.max(30, Math.min(160, E.bpm + d)); bpmEl.textContent = E.bpm; commit(); };
+      const autoBar = el('div', { class: 'metro' }, startBtn, el('div', { class: 'row', style: 'gap:6px' }, el('button', { class: 'btn', 'aria-label': 'Slower', onclick: () => setBpm(-5) }, '−'), bpmEl, el('span', { class: 'muted', text: 'bpm' }), el('button', { class: 'btn', 'aria-label': 'Faster', onclick: () => setBpm(5) }, '+')), beatsEl, phaseEl);
+      const melBox = el('div', { class: 'mel' }), boardBox = el('div');
+      const manual = el('div', { class: 'row', style: 'gap:8px' });
+      box.append(presetRow, ctrl, hint, autoBar, el('div', { class: 'callout echo' }, melBox, boardBox, manual));
+      const board = (upto) => { if (!M) return; const dots = upto < 0 ? [] : M.seq.slice(0, upto + 1).map((x, i) => ({ s: x.s, f: x.f, kind: i === upto ? 'target' : 'right', text: G.PC_SHORT[x.pc] })); boardBox.innerHTML = ''; boardBox.append(fretboard({ lo: 0, hi: 12, bands: M.strings, dots }, { label: 'Melody' })); };
+      const paintMelody = (mel) => {
         timers.forEach(clearTimeout); timers = [];
-        M = D.echo(lvl);
-        melBox.innerHTML = '';
+        M = mel; melBox.innerHTML = '';
+        if (!M) { melBox.append(el('p', { class: 'muted', text: 'Couldn’t fit a melody on those strings. Try another string or fewer notes.' })); boardBox.innerHTML = ''; return; }
         M.strings.forEach((s, g) => {
           if (g) melBox.append(el('span', { class: 'arrow', text: '→' }));
-          melBox.append(el('div', { class: 'grp' }, el('span', { class: 'grp-s', text: G.STRING_NAMES[s] + ' string' }),
-            el('div', { class: 'grp-n' }, ...M.seq.filter((x) => x.g === g).map((x) => el('span', { class: 'nt', text: G.PC_SHORT[x.pc] })))));
+          melBox.append(el('div', { class: 'grp' }, el('span', { class: 'grp-s', text: G.STRING_NAMES[s] + ' string' }), el('div', { class: 'grp-n' }, ...M.seq.filter((x) => x.g === g).map((x) => el('span', { class: 'nt', text: G.PC_SHORT[x.pc] })))));
         });
         board(-1);
       };
+      const newMelody = () => D.echo(E.n, E.strings, usage);
+      const fresh = () => { if (run.on) { run.plan = null; return; } paintMelody(newMelody()); }; // while running, the next round brings the new settings
       const reveal = () => {
-        timers.forEach(clearTimeout); timers = [];
-        const nts = melBox.querySelectorAll('.nt');
-        nts.forEach((n) => n.classList.remove('on', 'done'));
-        M.seq.forEach((x, i) => timers.push(setTimeout(() => {
-          if (!box.isConnected) return;
-          nts.forEach((n, j) => { n.classList.toggle('on', j === i); if (j < i) n.classList.add('done'); });
-          board(i); Metro.pluck(x.midi);
-          if (i === M.seq.length - 1) timers.push(setTimeout(() => nts.forEach((n) => { n.classList.remove('on'); n.classList.add('done'); }), 600));
-        }, 150 + i * 650)));
+        if (!M || run.on) return;
+        const mel = M;
+        Metro.ready().then(() => {
+          timers.forEach(clearTimeout); timers = [];
+          const nts = melBox.querySelectorAll('.nt'); nts.forEach((n) => n.classList.remove('on', 'done', 'cur'));
+          const t0 = Metro.ctx.currentTime + 0.12, GAP = 0.65;
+          mel.seq.forEach((x, i) => {
+            Metro.pluck(x.midi, 0, t0 + i * GAP);
+            timers.push(setTimeout(() => { if (M !== mel) return; nts.forEach((n, j) => { n.classList.toggle('on', j === i); if (j < i) n.classList.add('done'); }); board(i); }, 120 + i * GAP * 1000));
+          });
+          timers.push(setTimeout(() => { if (M === mel) nts.forEach((n) => { n.classList.remove('on'); n.classList.add('done'); }); }, 120 + mel.seq.length * GAP * 1000));
+        });
       };
-      const revealBtn = el('button', { class: 'btn primary', onclick: reveal }, 'Reveal');
-      const nextBtn = el('button', { class: 'btn', onclick: fresh }, 'New melody');
-      echoCard.append(el('div', { class: 'row', style: 'gap:8px' }, revealBtn, nextBtn, el('span', { class: 'muted small', text: 'Keys: R = reveal, N = new melody' })));
+      manual.append(el('button', { class: 'btn', onclick: reveal }, 'Reveal'), el('button', { class: 'btn', onclick: fresh }, 'New melody'), el('span', { class: 'muted small', text: 'Reveal works while the metronome is stopped · keys R / N' }));
       keyHandler = (e) => { if (e.key === 'r' || e.key === 'R') reveal(); else if (e.key === 'n' || e.key === 'N') fresh(); };
-      fresh();
+      // ---- auto mode: every round is planned beat by beat and fills whole bars
+      const setPhase = (cls, txt) => { phaseEl.className = 'echo-phase ' + cls; phaseEl.textContent = txt; };
+      const paintStart = () => { startBtn.textContent = run.counting ? `Starting in ${run.counting}…` : run.on ? 'Stop' : 'Start'; };
+      const bars = (x) => Math.ceil(x / 4) * 4;
+      const buildRound = (mel) => {
+        const n = mel.seq.length, read = n <= 4 ? 8 : n <= 6 ? 12 : 16, plan = [];
+        for (let i = 0; i < read; i++) plan.push({ ph: 'read', left: read - i });
+        for (let i = 0; i < bars(n); i++) plan.push({ ph: 'play', idx: i < n ? i : -1 });
+        for (let i = 0; i < bars(n); i++) plan.push({ ph: 'check', idx: i < n ? i : -1 });
+        return { mel, plan };
+      };
+      const show = (step, mel, beatInBar) => {
+        if (M !== mel) paintMelody(mel);
+        beatsEl.querySelectorAll('i').forEach((x, i) => x.classList.toggle('on', i === beatInBar));
+        const nts = melBox.querySelectorAll('.nt');
+        if (step.ph === 'read') { setPhase('read', `Read it… ${step.left}`); nts.forEach((x) => x.classList.remove('on', 'done', 'cur')); board(-1); }
+        else if (step.ph === 'play') { setPhase('play', step.idx >= 0 ? 'Play it' : 'Play it (rest)'); nts.forEach((x, j) => x.classList.toggle('cur', j === step.idx)); }
+        else {
+          setPhase('check', 'Check');
+          if (step.idx >= 0) { nts.forEach((x, j) => { x.classList.remove('cur'); x.classList.toggle('on', j === step.idx); x.classList.toggle('done', j < step.idx); }); board(step.idx); }
+          else nts.forEach((x) => { x.classList.remove('on', 'cur'); x.classList.add('done'); });
+        }
+      };
+      const stopRun = () => { run.on = false; run.counting = 0; clearInterval(run.timer); clearTimeout(run.cd); paintStart(); setPhase('', 'Stopped'); melBox.querySelectorAll('.nt').forEach((x) => x.classList.remove('cur')); };
+      const sched = () => {
+        if (!box.isConnected) { stopRun(); return; } // left the page
+        const ctx = Metro.ctx;
+        while (run.on && run.next < ctx.currentTime + 0.12) {
+          if (!run.plan || run.pos >= run.plan.plan.length) { const mel = newMelody(); if (!mel) { stopRun(); return; } run.plan = buildRound(mel); run.pos = 0; }
+          const { mel, plan } = run.plan, pos = run.pos, step = plan[pos], t = run.next;
+          Metro.click(t, pos % 4 === 0);
+          if (step.ph === 'check' && step.idx >= 0) Metro.pluck(mel.seq[step.idx].midi, 0, t);
+          setTimeout(() => { if (run.on) show(step, mel, pos % 4); }, Math.max(0, (t - ctx.currentTime) * 1000));
+          run.pos++; run.next += 60 / E.bpm;
+        }
+      };
+      const startRun = () => Metro.ready().then((okA) => {
+        if (!okA) return;
+        clearInterval(run.timer); clearTimeout(run.cd); timers.forEach(clearTimeout); timers = [];
+        const first = newMelody(); if (!first) return;
+        run.plan = buildRound(first); run.pos = 0; paintMelody(first);
+        run.on = true; run.counting = 3; Metro.countBeep(); paintStart(); setPhase('read', 'Get ready…');
+        const down = () => {
+          if (!run.on || !box.isConnected) return; run.counting--;
+          if (run.counting > 0) { Metro.countBeep(); paintStart(); run.cd = setTimeout(down, 1000); return; }
+          paintStart(); run.next = Metro.ctx.currentTime + 0.05; run.timer = setInterval(sched, 25);
+        };
+        run.cd = setTimeout(down, 1000);
+      });
+      startBtn.addEventListener('click', () => (run.on ? stopRun() : startRun()));
+      // anchor diagram + progress
       if (stage.figures[0]) {
         const det = el('details', null, el('summary', { class: 'muted', style: 'cursor:pointer', text: 'Show the anchor diagram' }));
         det.addEventListener('toggle', () => { if (det.open && det.children.length === 1) det.append(figure(stage.figures[0], stage)); });
         box.append(det);
       }
-      const done = p.playLevel >= lvl;
-      box.append(el('div', { class: 'row', style: 'justify-content:space-between;border-top:1px solid var(--line);padding-top:14px' },
-        el('p', null, el('b', { text: 'Pass this level: ' }), D.pass),
-        el('button', { class: 'btn' + (done ? '' : ' primary'), disabled: done, onclick: () => { p.playLevel = Math.max(p.playLevel, lvl); commit(); if (lvl < 2) lvl++; paint(); } }, done ? `${L.label} done ✓` : `I nailed ${L.label}`)));
+      const passRow = el('div', { class: 'row', style: 'justify-content:space-between;border-top:1px solid var(--line);padding-top:14px' });
+      box.append(passRow);
+      function paintPass() {
+        passRow.innerHTML = '';
+        const i = levels.findIndex(sameAs);
+        if (i < 0) { passRow.append(el('p', { class: 'muted', text: 'Custom settings. Tap a preset to mark progress (Start, Next, Test).' })); return; }
+        const lv = levels[i], done = p.playLevel >= i;
+        passRow.append(el('p', null, el('b', { text: `Pass ${lv.name}: ` }), D.pass),
+          el('button', { class: 'btn' + (done ? '' : ' primary'), disabled: done, onclick: () => { p.playLevel = Math.max(p.playLevel, i); commit(); paintPresets(); paintPass(); } }, done ? `${lv.name} done ✓` : `I nailed ${lv.name}`));
+      }
+      paintStart(); syncCtrl(); paintMelody(newMelody());
     }
     paint();
     return box;

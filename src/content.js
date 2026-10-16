@@ -126,31 +126,45 @@ const STAGES = (function (G) {
   const MEL_SCALE = [9, 11, 0, 2, 4, 5, 7];
   const melIn = (m) => MEL_SCALE.includes(G.mod(m));
   const melStep = (m, steps) => { let x = m, n = Math.abs(steps); const d = Math.sign(steps); while (n > 0) { x += d; if (melIn(x)) n--; } return x; };
-  function makeMelody(level) {
-    const len = [4, 6, 8][level], nG = [1, 2, 3][level];
-    for (let tries = 0; tries < 6000; tries++) {
-      const up = Math.random() < 0.55;
-      // Level 1: D or G string · Level 2: B and high e · Level 3: any three neighbouring strings of the six
-      const strings = level === 0 ? [pick([2, 3])] : level === 1 ? (up ? [4, 5] : [5, 4]) : (() => { const a = rnd(4); const t = [a, a + 1, a + 2]; return up ? t : t.reverse(); })();
-      const sizes = nG === 1 ? [len] : nG === 2 ? [3, 3] : [3, 3, 2];
+  // Any note count (4–8) on any set of strings. At least 2 notes per string; when more strings are selected
+  // than that allows, each melody uses a run of neighbouring selected strings, rotating so all get used.
+  function makeMelody(n, active, usage = [0, 0, 0, 0, 0, 0]) {
+    const act = [...active].sort((a, b) => a - b);
+    const k = Math.max(1, Math.min(act.length, Math.floor(n / 2)));
+    const windows = []; for (let i = 0; i + k <= act.length; i++) windows.push(act.slice(i, i + k));
+    windows.sort((a, b) => a.reduce((t, x) => t + usage[x], 0) - b.reduce((t, x) => t + usage[x], 0) + (Math.random() - 0.5) * 0.5);
+    const sizes = [...Array(k)].map((_, i) => Math.floor(n / k) + (i < n % k ? 1 : 0));
+    for (let tries = 0; tries < 8000; tries++) {
+      const win = windows[tries < 4000 ? 0 : rnd(windows.length)];
+      const strings = Math.random() < 0.55 ? [...win] : [...win].reverse();
+      const maxSpan = tries < 6000 ? 5 : 7; // keep the tune within one hand-sized area
       let pitch = G.OPEN_MIDI[strings[0]] + 1 + rnd(9); while (!melIn(pitch)) pitch++;
       const seq = []; let ok = true;
-      for (let g = 0; g < nG && ok; g++) for (let k = 0; k < sizes[g]; k++) {
-        if (seq.length) { const r = Math.random(); const st = r < 0.65 ? 1 : r < 0.9 ? 2 : 3; pitch = melStep(pitch, Math.random() < 0.5 ? st : -st); }
-        const f = pitch - G.OPEN_MIDI[strings[g]];
-        if (f < 0 || f > 12) { ok = false; break; }
-        seq.push({ s: strings[g], f, pc: G.mod(pitch), g, midi: pitch });
+      for (let g = 0; g < k && ok; g++) {
+        const s = strings[g];
+        for (let j = 0; j < sizes[g]; j++) {
+          if (seq.length) { const r = Math.random(); const st = r < 0.65 ? 1 : r < 0.9 ? 2 : 3; pitch = melStep(pitch, Math.random() < 0.5 ? st : -st); }
+          if (j === 0 && g > 0) { // moving to a far string: shift by octaves to stay near the same frets
+            const prevF = seq[seq.length - 1].f; let best = null;
+            for (const o of [-24, -12, 0, 12, 24]) { const f = pitch + o - G.OPEN_MIDI[s]; if (f >= 0 && f <= 12 && (best === null || Math.abs(f - prevF) < Math.abs(best - prevF))) best = f; }
+            if (best === null) { ok = false; break; }
+            pitch = G.OPEN_MIDI[s] + best;
+          }
+          const f = pitch - G.OPEN_MIDI[s];
+          if (f < 0 || f > 12) { ok = false; break; }
+          seq.push({ s, f, pc: G.mod(pitch), g, midi: pitch });
+        }
       }
       if (!ok) continue;
-      const last = seq[seq.length - 1].pc;
-      if (last !== 9 && last !== 0) continue; // end on a home note: A (or C)
+      if (![9, 0].includes(seq[seq.length - 1].pc)) continue; // end on a home note: A (or C)
+      const fs = seq.map((x) => x.f); if (Math.max(...fs) - Math.min(...fs) > maxSpan) continue;
       if (new Set(seq.map((x) => x.s + ':' + x.f)).size < 3) continue;
-      const fs = seq.map((x) => x.f);
-      if (Math.max(...fs) - Math.min(...fs) > 5) continue; // keep the whole tune within one hand-sized area
+      strings.forEach((x) => usage[x]++);
       return { seq, strings };
     }
-    return { fallback: true, seq: [{ s: 3, f: 2, pc: 9, g: 0, midi: 57 }, { s: 3, f: 5, pc: 0, g: 0, midi: 60 }, { s: 3, f: 7, pc: 2, g: 0, midi: 62 }, { s: 3, f: 2, pc: 9, g: 0, midi: 57 }], strings: [3] };
+    return null;
   }
+
 
   /* ---------- Stage 2: intervals ---------- */
   const CROSS_RULE = { '1,-2': 'next string up, two frets lower = minor 3rd', '1,-1': 'next string up, one fret lower = major 3rd', '1,0': 'next string up, same fret = perfect 4th', '1,1': 'next string up, one fret higher = tritone', '1,2': 'next string up, two frets higher = perfect 5th', '2,2': 'two strings up, two frets higher = octave', '2,0': 'two strings up, same fret = minor 7th', '2,-1': 'two strings up, one fret lower = major 6th' };
@@ -1089,10 +1103,10 @@ const STAGES = (function (G) {
     },
     notes3: {
       title: 'Melody echo', kind: 'echo',
-      how: ['Read the melody: the notes, and the string each group is played on. Only those strings light up.', 'Play it on the lit strings, at your own pace. Find every note yourself, using your anchors. If a note is the open string, playing it open or at fret 12 both count.', 'Press <b>Reveal</b>: the frets light up in order and the melody plays, so you can hear if yours matched. Then <b>New melody</b>.'],
-      levels: [{ label: 'Level 1', detail: '4 notes on the D or G string' }, { label: 'Level 2', detail: '6 notes on the B and high e strings' }, { label: 'Level 3', detail: '8 notes over three strings, any of the six' }],
-      echo: (lvl) => makeMelody(lvl),
-      pass: 'Five melodies in a row played right before you press Reveal.',
+      how: ['Pick how many notes and which strings (or tap a preset), then press <b>Start</b>. After a 3-second count-in it loops by itself, so your hands stay on the guitar.', '<b>Read it</b>: a new melody appears, with 2 bars to work out where the notes are (more for longer melodies). <b>Play it</b>: the note cards light up one per click; play each one. <b>Check</b>: the app plays it back and lights the frets.', 'If a note is the open string, playing it open or at fret 12 both count. Prefer your own pace? Stop the metronome and use Reveal / New melody.'],
+      levels: [{ label: 'Level 1', name: 'Start', detail: '4 notes · D and G', n: 4, strings: [2, 3] }, { label: 'Level 2', name: 'Next', detail: '6 notes · B and high e', n: 6, strings: [4, 5] }, { label: 'Level 3', name: 'Test', detail: '8 notes · all six strings', n: 8, strings: [0, 1, 2, 3, 4, 5] }],
+      echo: (n, strings, usage) => makeMelody(n, strings, usage),
+      pass: 'Five melodies in a row where everything you played matched the check.',
     },
     intervals: {
       title: 'Interval hop',
