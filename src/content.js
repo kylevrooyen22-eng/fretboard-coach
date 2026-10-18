@@ -126,15 +126,12 @@ const STAGES = (function (G) {
     { label: 'Step 3', detail: 'All four strings mixed', gen: () => q1c() },
   ];
   /* ---------- Melody echo (1.3 Play it): short tunes in a key picked in the background, grouped by string ---------- */
-  // acc = false: plain notes only (C major / A minor). acc = true: a random major or minor key each melody,
-  // spelled the way that key is written (flat keys use ♭ names, the rest ♯).
+  // acc = false: plain notes only (C major / A minor). acc = true: a random major or minor key each melody.
+  // In-between notes show both names (D♯/E♭), the same way 1.2 teaches them.
   const MAJOR = [0, 2, 4, 5, 7, 9, 11];
-  const FLAT_KEYS = [5, 10, 3, 8, 1]; // F, B♭, E♭, A♭, D♭ major (and their relative minors)
-  const SHARP_NM = ['C', 'C♯', 'D', 'D♯', 'E', 'F', 'F♯', 'G', 'G♯', 'A', 'A♯', 'B'];
-  const FLAT_NM = ['C', 'D♭', 'D', 'E♭', 'E', 'F', 'G♭', 'G', 'A♭', 'A', 'B♭', 'B'];
   function melKey(acc) {
     const maj = acc ? rnd(12) : 0, minor = Math.random() < 0.5;
-    return { scale: MAJOR.map((x) => G.mod(maj + x)), homes: minor ? [G.mod(maj + 9), maj] : [maj, G.mod(maj + 9)], names: FLAT_KEYS.includes(maj) ? FLAT_NM : SHARP_NM };
+    return { scale: MAJOR.map((x) => G.mod(maj + x)), homes: minor ? [G.mod(maj + 9), maj] : [maj, G.mod(maj + 9)] };
   }
   function makeMelody(n, active, usage = [0, 0, 0, 0, 0, 0], acc = false) {
     let key = melKey(acc);
@@ -165,7 +162,7 @@ const STAGES = (function (G) {
           }
           const f = pitch - G.OPEN_MIDI[s];
           if (f < 0 || f > 12) { ok = false; break; }
-          seq.push({ s, f, pc: G.mod(pitch), g, midi: pitch, name: key.names[G.mod(pitch)] });
+          seq.push({ s, f, pc: G.mod(pitch), g, midi: pitch, name: G.PC_LABEL[G.mod(pitch)] });
         }
       }
       if (!ok) continue;

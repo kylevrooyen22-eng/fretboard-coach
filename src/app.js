@@ -582,14 +582,14 @@
       const melBox = el('div', { class: 'mel' }), boardBox = el('div');
       const manual = el('div', { class: 'row', style: 'gap:8px' });
       box.append(presetRow, ctrl, hint, autoBar, el('div', { class: 'callout echo' }, melBox, boardBox, manual));
-      const board = (upto) => { if (!M) return; const dots = upto < 0 ? [] : M.seq.slice(0, upto + 1).map((x, i) => ({ s: x.s, f: x.f, kind: i === upto ? 'target' : 'right', text: x.name || G.PC_SHORT[x.pc] })); boardBox.innerHTML = ''; boardBox.append(fretboard({ lo: 0, hi: 12, bands: M.strings, dots }, { label: 'Melody' })); };
+      const board = (upto) => { if (!M) return; const dots = upto < 0 ? [] : M.seq.slice(0, upto + 1).map((x, i) => ({ s: x.s, f: x.f, kind: i === upto ? 'target' : 'right', text: (x.name || G.PC_SHORT[x.pc]).split('/')[0] })); boardBox.innerHTML = ''; boardBox.append(fretboard({ lo: 0, hi: 12, bands: M.strings, dots }, { label: 'Melody' })); };
       const paintMelody = (mel) => {
         timers.forEach(clearTimeout); timers = [];
         M = mel; melBox.innerHTML = '';
         if (!M) { melBox.append(el('p', { class: 'muted', text: 'Couldn’t fit a melody on those strings. Try another string or fewer notes.' })); boardBox.innerHTML = ''; return; }
         M.strings.forEach((s, g) => {
           if (g) melBox.append(el('span', { class: 'arrow', text: '→' }));
-          melBox.append(el('div', { class: 'grp' }, el('span', { class: 'grp-s', text: G.STRING_NAMES[s] + ' string' }), el('div', { class: 'grp-n' }, ...M.seq.filter((x) => x.g === g).map((x) => el('span', { class: 'nt', text: x.name || G.PC_SHORT[x.pc] })))));
+          melBox.append(el('div', { class: 'grp' }, el('span', { class: 'grp-s', text: G.STRING_NAMES[s] + ' string' }), el('div', { class: 'grp-n' }, ...M.seq.filter((x) => x.g === g).map((x) => ((nm) => (nm.includes('/') ? el('span', { class: 'nt two' }, ...nm.split('/').map((t) => el('span', { text: t }))) : el('span', { class: 'nt', text: nm })))(x.name || G.PC_SHORT[x.pc])))));
         });
         board(-1);
       };
