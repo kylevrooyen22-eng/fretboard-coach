@@ -79,15 +79,18 @@ const STAGES = (function (G) {
     const ex = isNat(pc) ? walkExplain(s, f, [0, 3, 5, 7, 9, 12]) : sharpExplain(s, f);
     return t === 'find' ? findQ(s, pc, 12, `${G.PC_LABEL[pc]} on the ${SN1(s)} string is at fret ${G.mod(pc - G.OPEN_PC[s])}${G.mod(pc - G.OPEN_PC[s]) === 0 ? ' (open) and 12' : ''}. ` + ex) : nameQ(s, f, ALL_CHOICES, ex);
   }
-  // 1.3: the D, G, B and high e strings, learned through a few anchor notes per string
-  const ANCHORS = { 2: [0, 3, 5, 7, 9, 12], 3: [0, 2, 5, 7, 9, 12], 4: [0, 1, 3, 5, 12], 5: [0, 3, 5, 7, 12] };
+  // 1.3: the D, G, B and high e strings, learned through the same landmark frets as low E and A (3-5-7-9-12)
+  const LM_FRETS = [0, 3, 5, 7, 9, 12];
+  const ANCHORS = { 2: LM_FRETS, 3: LM_FRETS, 4: LM_FRETS, 5: LM_FRETS };
+  const sharpName = (pc) => G.PC_LABEL[pc].split('/')[0];
   function anchorExplain(s, f) {
-    const pcName = (x) => G.PC_SHORT[G.pcAt(s, x)];
-    if (ANCHORS[s].includes(f)) return `It's an anchor: ${SN1(s)} string fret ${f} = ${pcName(f)}.` + (s === 5 ? ' (Same as low E.)' : '');
-    const lm = ANCHORS[s].reduce((x, y) => (Math.abs(y - f) < Math.abs(x - f) ? y : x));
+    const pcName = (x) => sharpName(G.pcAt(s, x));
+    if (ANCHORS[s].includes(f)) return `It's a landmark: ${SN1(s)} string fret ${f} = ${pcName(f)}.` + (s === 5 ? ' (Same as low E.)' : '');
+    const dist = (y) => Math.abs(y - f) + (isNat(G.pcAt(s, y)) ? 0 : 0.5); // on a tie, walk from the plain-note landmark
+    const lm = ANCHORS[s].reduce((x, y) => (dist(y) < dist(x) ? y : x));
     const d = f - lm;
     const word = (['', 'one', 'two', 'three', 'four', 'five', 'six'][Math.abs(d)] || Math.abs(d)) + (Math.abs(d) === 1 ? ' fret' : ' frets');
-    let ex = `Nearest anchor: fret ${lm} = ${pcName(lm)}. ${word[0].toUpperCase() + word.slice(1)} ${d > 0 ? 'up' : 'down'}`;
+    let ex = `Nearest landmark: fret ${lm} = ${pcName(lm)}. ${word[0].toUpperCase() + word.slice(1)} ${d > 0 ? 'up' : 'down'}`;
     ex += ` gives ${G.PC_LABEL[G.pcAt(s, f)].replace('/', ' (also called ') + (isNat(G.pcAt(s, f)) ? '' : ')')}.`;
     if (s < 5) {
       const full = G.traceToEA(s, f);
@@ -100,10 +103,10 @@ const STAGES = (function (G) {
     const s = pool.length === 4 ? weighted([[28, 2], [28, 3], [28, 4], [16, 5]]) : pick(pool);
     const onAnchor = Math.random() < 0.5;
     let f;
-    const mid = ANCHORS[s].filter((x) => x > 0 && x < 12); // the anchors worth drilling (not the open string / fret 12)
+    const mid = ANCHORS[s].filter((x) => x > 0 && x < 12); // the landmarks worth drilling (not the open string / fret 12)
     if (onAnchor) f = pick(mid);
     else {
-      // a note one or two frets from an anchor; mostly plain notes, an occasional sharp/flat
+      // a note one or two frets from a landmark; mostly plain notes, an occasional sharp/flat
       const cands = ANCHORS[s].flatMap((lm) => [-2, -1, 1, 2].map((d) => lm + d)).filter((x) => x >= 1 && x <= 11 && !ANCHORS[s].includes(x));
       const plain = cands.filter((x) => isNat(G.pcAt(s, x))), acc = cands.filter((x) => !isNat(G.pcAt(s, x)));
       f = Math.random() < 0.8 && plain.length ? pick(plain) : pick(acc.length ? acc : mid);
@@ -122,19 +125,29 @@ const STAGES = (function (G) {
     { label: 'Step 2', detail: 'B and high e strings', gen: () => q1c([4, 5]) },
     { label: 'Step 3', detail: 'All four strings mixed', gen: () => q1c() },
   ];
-  /* ---------- Melody echo (1.3 Play it): short tunes from A minor / C major notes, grouped by string ---------- */
-  const MEL_SCALE = [9, 11, 0, 2, 4, 5, 7];
-  const melIn = (m) => MEL_SCALE.includes(G.mod(m));
-  const melStep = (m, steps) => { let x = m, n = Math.abs(steps); const d = Math.sign(steps); while (n > 0) { x += d; if (melIn(x)) n--; } return x; };
-  // Any note count (4–8) on any set of strings. At least 2 notes per string; when more strings are selected
-  // than that allows, each melody uses a run of neighbouring selected strings, rotating so all get used.
-  function makeMelody(n, active, usage = [0, 0, 0, 0, 0, 0]) {
+  /* ---------- Melody echo (1.3 Play it): short tunes in a key picked in the background, grouped by string ---------- */
+  // acc = false: plain notes only (C major / A minor). acc = true: a random major or minor key each melody,
+  // spelled the way that key is written (flat keys use ♭ names, the rest ♯).
+  const MAJOR = [0, 2, 4, 5, 7, 9, 11];
+  const FLAT_KEYS = [5, 10, 3, 8, 1]; // F, B♭, E♭, A♭, D♭ major (and their relative minors)
+  const SHARP_NM = ['C', 'C♯', 'D', 'D♯', 'E', 'F', 'F♯', 'G', 'G♯', 'A', 'A♯', 'B'];
+  const FLAT_NM = ['C', 'D♭', 'D', 'E♭', 'E', 'F', 'G♭', 'G', 'A♭', 'A', 'B♭', 'B'];
+  function melKey(acc) {
+    const maj = acc ? rnd(12) : 0, minor = Math.random() < 0.5;
+    return { scale: MAJOR.map((x) => G.mod(maj + x)), homes: minor ? [G.mod(maj + 9), maj] : [maj, G.mod(maj + 9)], names: FLAT_KEYS.includes(maj) ? FLAT_NM : SHARP_NM };
+  }
+  function makeMelody(n, active, usage = [0, 0, 0, 0, 0, 0], acc = false) {
+    let key = melKey(acc);
+    const melIn = (m) => key.scale.includes(G.mod(m));
+    const melStep = (m, steps) => { let x = m, k = Math.abs(steps); const d = Math.sign(steps); while (k > 0) { x += d; if (melIn(x)) k--; } return x; };
     const act = [...active].sort((a, b) => a - b);
     const k = Math.max(1, Math.min(act.length, Math.floor(n / 2)));
     const windows = []; for (let i = 0; i + k <= act.length; i++) windows.push(act.slice(i, i + k));
     windows.sort((a, b) => a.reduce((t, x) => t + usage[x], 0) - b.reduce((t, x) => t + usage[x], 0) + (Math.random() - 0.5) * 0.5);
     const sizes = [...Array(k)].map((_, i) => Math.floor(n / k) + (i < n % k ? 1 : 0));
+    // At least 2 notes per string; with more strings than that allows, use a run of neighbouring strings, rotating.
     for (let tries = 0; tries < 8000; tries++) {
+      if (tries && tries % 400 === 0) key = melKey(acc); // some keys don't fit some string sets; try another
       const win = windows[tries < 4000 ? 0 : rnd(windows.length)];
       const strings = Math.random() < 0.55 ? [...win] : [...win].reverse();
       const maxSpan = tries < 6000 ? 5 : 7; // keep the tune within one hand-sized area
@@ -152,11 +165,11 @@ const STAGES = (function (G) {
           }
           const f = pitch - G.OPEN_MIDI[s];
           if (f < 0 || f > 12) { ok = false; break; }
-          seq.push({ s, f, pc: G.mod(pitch), g, midi: pitch });
+          seq.push({ s, f, pc: G.mod(pitch), g, midi: pitch, name: key.names[G.mod(pitch)] });
         }
       }
       if (!ok) continue;
-      if (![9, 0].includes(seq[seq.length - 1].pc)) continue; // end on a home note: A (or C)
+      if (!key.homes.includes(seq[seq.length - 1].pc)) continue; // end on the key's home note (or its relative)
       const fs = seq.map((x) => x.f); if (Math.max(...fs) - Math.min(...fs) > maxSpan) continue;
       if (new Set(seq.map((x) => x.s + ':' + x.f)).size < 3) continue;
       strings.forEach((x) => usage[x]++);
@@ -504,8 +517,7 @@ const STAGES = (function (G) {
 
   /* ---------- Figures ---------- */
   const fig = {
-    anchors: () => { const A = { 0: [3, 5, 7], 1: [3, 5, 7], 2: [3, 5, 7, 9], 3: [2, 5, 7, 9], 4: [1, 3, 5], 5: [3, 5, 7] };
-      return [{ label: 'Anchor notes', caption: 'Colour key: orange = the new anchors to learn on D, G and B. Blue = the ones you already know (high e is the same as low E). Every open string is an anchor too: its own name.', spec: { lo: 0, hi: 12, dots: [0, 1, 2, 3, 4, 5].flatMap((s) => A[s].map((f) => ({ s, f, kind: s >= 2 && s <= 4 ? 'root' : 'note', text: G.PC_SHORT[G.pcAt(s, f)] }))) } }]; },
+    anchors: () => [{ label: 'Landmarks: frets 3, 5, 7, 9, 12', caption: 'Orange = new: D, G and B. Blue = already known: low E, A, and high e (same as low E). Fret 12 = the open string’s name again.', spec: { lo: 0, hi: 12, dots: [0, 1, 2, 3, 4, 5].flatMap((s) => [3, 5, 7, 9, 12].map((f) => ({ s, f, kind: s >= 2 && s <= 4 ? 'root' : 'note', text: sharpName(G.pcAt(s, f)) }))) } }],
     fret5: () => [{ label: 'The fret-5 rule', caption: 'Fret 5 = the open note of the next string up. On the G string it’s fret 4.', spec: { lo: 0, hi: 7, dots: [[0, 5], [1, 5], [2, 5], [3, 4], [4, 5]].flatMap(([s, f]) => [{ s, f, kind: 'note', text: G.PC_SHORT[G.pcAt(s, f)] }, { s: s + 1, f: 0, kind: 'root', text: G.PC_SHORT[G.pcAt(s + 1, 0)] }]), links: [[0, 5, 1, 0], [1, 5, 2, 0], [2, 5, 3, 0], [3, 4, 4, 0], [4, 5, 5, 0]] } }],
     naturals: () => [{ label: 'Low E and A', caption: 'Blue = the landmarks to memorise (frets 3, 5, 7, 12). Grey = the notes in between: walk to them from the nearest landmark.', spec: { lo: 0, hi: 12, dots: [0, 1].flatMap((s) => [...Array(13).keys()].filter((f) => isNat(G.pcAt(s, f))).map((f) => ({ s, f, kind: [3, 5, 7, 12].includes(f) ? 'note' : 'ghost', text: G.PC_SHORT[G.pcAt(s, f)] }))) } }],
     sharpStep: () => [{ label: 'Low E string', caption: 'Fret 3 = G. One fret up = G♯ (also A♭). One fret down = G♭ (also F♯).', spec: { lo: 0, hi: 7, dots: [{ s: 0, f: 2, kind: 'minor', text: 'G♭' }, { s: 0, f: 3, kind: 'note', text: 'G' }, { s: 0, f: 4, kind: 'minor', text: 'G♯' }] } }],
@@ -616,7 +628,7 @@ const STAGES = (function (G) {
     { title: 'Same phrase, one octave higher.', text: 'Play a short phrase on the <b>low E string</b> with A (fret 5), C (8) and D (10). Then play it again one octave up with the octave shape, two strings up and two frets higher: <b>D string frets 7, 10 and 12</b>.',
       fig: { title: 'The phrase, twice', fn: () => [{ label: 'Low E → D', spec: { lo: 3, hi: 13, dots: noteDots([[0, 5], [0, 8], [0, 10], [2, 7], [2, 10], [2, 12]]), links: [[0, 5, 2, 7], [0, 8, 2, 10], [0, 10, 2, 12]] } }] } },
     { title: 'Explore the top strings.', text: 'Use only A, C, D, E and G, on the <b>G, B and high e strings</b>. Name each note as you play it. Not sure? Trace it back to low E or A with the octave shape.',
-      fig: { title: 'Your anchors on G, B and high e', fn: () => [{ label: 'G, B, high e', caption: 'Only the anchors are shown. Walk from them to find A, C, D, E and G.', spec: { lo: 0, hi: 12, dots: [[3, 2], [3, 5], [3, 7], [3, 9], [4, 1], [4, 3], [4, 5], [5, 3], [5, 5], [5, 7]].map(([s, f]) => ({ s, f, kind: 'note', text: G.PC_SHORT[G.pcAt(s, f)] })) } }] } },
+      fig: { title: 'Your landmarks on G, B and high e', fn: () => [{ label: 'G, B, high e', caption: 'Only the landmarks are shown. Walk from them to find A, C, D, E and G.', spec: { lo: 0, hi: 12, dots: [3, 4, 5].flatMap((s) => [3, 5, 7, 9, 12].map((f) => ({ s, f, kind: 'note', text: sharpName(G.pcAt(s, f)) }))) } }] } },
   ];
   const USE_INTERVALS = [
     { title: 'Strum power chords along with the track.', text: 'A power chord is just two notes: a root, plus its 5th (next string up, two frets higher). Strum only those two strings and mute the rest. Use the five below: they all fit the track. Change chord whenever it sounds right, e.g. A for a bar, then C, then G.',
@@ -657,13 +669,13 @@ const STAGES = (function (G) {
     },
     {
       id: 'notes3', sub: '1.3', group: 'Foundations', title: 'Notes on the other strings', course: 'Module 1 · Octave Centers',
-      goal: 'Know the notes on the D, G, B and high e strings directly, using a few anchor notes per string.',
+      goal: 'Know the notes on the D, G, B and high e strings directly, using the same landmark frets as low E and A.',
       learn: [
-        '<b>D</b> 5-7-9 = G A B · <b>G</b> 5-7-9 = C D E · <b>B</b> 1-3-5 = C D E.',
-        '<b>High e</b> = low E, fret for fret.',
+        'Same landmarks on every string, frets 3-5-7-9: <b>D</b> = F G A B · <b>G</b> = A♯ C D E · <b>B</b> = D E F♯ G♯.',
+        '<b>High e</b> = low E, fret for fret. Fret 12 = the open string again.',
         'Not sure? Octave shape back to low E or A: two strings down, two frets lower (three from B or high e).',
       ],
-      figures: [{ title: 'Anchor notes on every string', fn: fig.anchors }, { title: 'The octave shape', fn: fig.octaves2 }],
+      figures: [{ title: 'Landmarks on every string', fn: fig.anchors },{ title: 'The octave shape', fn: fig.octaves2 }],
       know: () => q1c(), knowSteps: NOTES3_STEPS,
       use: { track: 'A minor backing track slow', rules: USE_NOTES_3 },
       test: { n: 15, pass: 13, maxAvg: 8, playLevel: 2 },
@@ -1103,9 +1115,9 @@ const STAGES = (function (G) {
     },
     notes3: {
       title: 'Melody echo', kind: 'echo',
-      how: ['Pick how many notes and which strings (or tap a preset), then press <b>Start</b>. After a 3-second count-in it loops by itself, so your hands stay on the guitar.', '<b>Read it</b>: a new melody appears, with 2 bars to work out where the notes are (more for longer melodies). <b>Play it</b>: the note cards light up one per click; play each one. <b>Check</b>: the app plays it back and lights the frets.', 'If a note is the open string, playing it open or at fret 12 both count. Prefer your own pace? Stop the metronome and use Reveal / New melody.'],
+      how: ['Pick how many notes and which strings (or tap a preset), then press <b>Start</b>. After a 3-second count-in it loops by itself, so your hands stay on the guitar.', '<b>Read it</b>: a new melody appears, with 2 bars to work out where the notes are (more for longer melodies). <b>Play it</b>: the note cards light up one per click; play each one. <b>Check</b>: the app plays it back and lights the frets.', 'Each melody is in a different key, so ♯ and ♭ notes turn up. Want plain notes only? Turn off <b>♯♭</b>.', 'If a note is the open string, playing it open or at fret 12 both count. Prefer your own pace? Stop the metronome and use Reveal / New melody.'],
       levels: [{ label: 'Level 1', name: 'Start', detail: '4 notes · D and G', n: 4, strings: [2, 3] }, { label: 'Level 2', name: 'Next', detail: '6 notes · B and high e', n: 6, strings: [4, 5] }, { label: 'Level 3', name: 'Test', detail: '8 notes · all six strings', n: 8, strings: [0, 1, 2, 3, 4, 5] }],
-      echo: (n, strings, usage) => makeMelody(n, strings, usage),
+      echo: (n, strings, usage, acc) => makeMelody(n, strings, usage, acc),
       pass: 'Five melodies in a row where everything you played matched the check.',
     },
     intervals: {

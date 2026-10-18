@@ -538,6 +538,7 @@
       const levels = D.levels;
       if (!p.echo) { const lv = levels[lvl]; p.echo = { n: lv.n, strings: [...lv.strings], bpm: 60 }; }
       const E = p.echo, usage = [0, 0, 0, 0, 0, 0];
+      if (E.acc === undefined) E.acc = true;
       const run = { on: false, counting: 0, next: 0, timer: null, cd: null, plan: null, pos: 0 };
       let M = null, timers = [];
       box.append(el('div', { class: 'row', style: 'justify-content:space-between' }, el('h2', { text: D.title }), el('span', { class: 'eyebrow', text: 'Play it' })));
@@ -554,11 +555,16 @@
       const slider = el('input', { type: 'range', min: 4, max: 8, step: 1, value: E.n, 'aria-label': 'Number of notes' });
       const nVal = el('span', { class: 'echo-val', text: E.n });
       const chipBox = el('div', { class: 'echo-chips' }), hint = el('p', { class: 'muted small' });
+      const accBtn = el('button', { class: 'echo-chip echo-acc', 'aria-label': 'Sharps and flats', onclick: () => { E.acc = !E.acc; commit(); syncCtrl(); fresh(); } }, '♯♭');
+      const accNote = el('span', { class: 'muted small' });
       const ctrl = el('div', { class: 'echo-ctrl' },
         el('span', { class: 'echo-lab', text: 'Notes' }), el('div', null, el('div', { class: 'echo-slide' }, slider, nVal), el('div', { class: 'echo-ticks' }, ...[4, 5, 6, 7, 8].map((t) => el('span', { text: t })))),
-        el('span', { class: 'echo-lab', text: 'Strings' }), chipBox);
+        el('span', { class: 'echo-lab', text: 'Strings' }), chipBox,
+        el('span', { class: 'echo-lab', text: 'Sharps' }), el('div', { class: 'row', style: 'gap:10px' }, accBtn, accNote));
       const syncCtrl = () => {
         slider.value = E.n; nVal.textContent = E.n;
+        accBtn.setAttribute('aria-pressed', E.acc ? 'true' : 'false');
+        accNote.textContent = E.acc ? 'On: a different key every melody' : 'Off: plain notes only';
         chipBox.innerHTML = '';
         [5, 4, 3, 2, 1, 0].forEach((s) => chipBox.append(el('button', { class: 'echo-chip', 'aria-pressed': E.strings.includes(s) ? 'true' : 'false', 'aria-label': G.STRING_NAMES[s] + ' string', onclick: () => {
           if (E.strings.includes(s)) { if (E.strings.length > 1) E.strings = E.strings.filter((x) => x !== s); } else E.strings = [...E.strings, s];
@@ -576,18 +582,18 @@
       const melBox = el('div', { class: 'mel' }), boardBox = el('div');
       const manual = el('div', { class: 'row', style: 'gap:8px' });
       box.append(presetRow, ctrl, hint, autoBar, el('div', { class: 'callout echo' }, melBox, boardBox, manual));
-      const board = (upto) => { if (!M) return; const dots = upto < 0 ? [] : M.seq.slice(0, upto + 1).map((x, i) => ({ s: x.s, f: x.f, kind: i === upto ? 'target' : 'right', text: G.PC_SHORT[x.pc] })); boardBox.innerHTML = ''; boardBox.append(fretboard({ lo: 0, hi: 12, bands: M.strings, dots }, { label: 'Melody' })); };
+      const board = (upto) => { if (!M) return; const dots = upto < 0 ? [] : M.seq.slice(0, upto + 1).map((x, i) => ({ s: x.s, f: x.f, kind: i === upto ? 'target' : 'right', text: x.name || G.PC_SHORT[x.pc] })); boardBox.innerHTML = ''; boardBox.append(fretboard({ lo: 0, hi: 12, bands: M.strings, dots }, { label: 'Melody' })); };
       const paintMelody = (mel) => {
         timers.forEach(clearTimeout); timers = [];
         M = mel; melBox.innerHTML = '';
         if (!M) { melBox.append(el('p', { class: 'muted', text: 'Couldn’t fit a melody on those strings. Try another string or fewer notes.' })); boardBox.innerHTML = ''; return; }
         M.strings.forEach((s, g) => {
           if (g) melBox.append(el('span', { class: 'arrow', text: '→' }));
-          melBox.append(el('div', { class: 'grp' }, el('span', { class: 'grp-s', text: G.STRING_NAMES[s] + ' string' }), el('div', { class: 'grp-n' }, ...M.seq.filter((x) => x.g === g).map((x) => el('span', { class: 'nt', text: G.PC_SHORT[x.pc] })))));
+          melBox.append(el('div', { class: 'grp' }, el('span', { class: 'grp-s', text: G.STRING_NAMES[s] + ' string' }), el('div', { class: 'grp-n' }, ...M.seq.filter((x) => x.g === g).map((x) => el('span', { class: 'nt', text: x.name || G.PC_SHORT[x.pc] })))));
         });
         board(-1);
       };
-      const newMelody = () => D.echo(E.n, E.strings, usage);
+      const newMelody = () => D.echo(E.n, E.strings, usage, E.acc);
       const fresh = () => { if (run.on) { run.plan = null; return; } paintMelody(newMelody()); }; // while running, the next round brings the new settings
       const reveal = () => {
         if (!M || run.on) return;
@@ -657,7 +663,7 @@
       startBtn.addEventListener('click', () => (run.on ? stopRun() : startRun()));
       // anchor diagram + progress
       if (stage.figures[0]) {
-        const det = el('details', null, el('summary', { class: 'muted', style: 'cursor:pointer', text: 'Show the anchor diagram' }));
+        const det = el('details', null, el('summary', { class: 'muted', style: 'cursor:pointer', text: 'Show the landmark diagram' }));
         det.addEventListener('toggle', () => { if (det.open && det.children.length === 1) det.append(figure(stage.figures[0], stage)); });
         box.append(det);
       }

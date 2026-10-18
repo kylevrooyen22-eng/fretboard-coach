@@ -30,9 +30,11 @@ const LESSONS = {
   ],
 
   notes3: [
-    { h: 'Anchors, then walk', p: [
-      'Learn three anchors per string, then walk from the nearest one, the same as on low E and A. High e is easy: it has exactly the same notes as low E.' ],
-      ex: '<b>D string</b> frets 5–7–9 = <b>G A B</b><br><b>G string</b> frets 5–7–9 = <b>C D E</b><br><b>B string</b> frets 1–3–5 = <b>C D E</b><br>Walk example: G string fret 10? Fret 9 is E, one fret up (E–F) = <b>F</b>.', fig: 0 },
+    { h: 'Same landmarks, every string', p: [
+      'Use the same frets you already know from low E and A: <b>3, 5, 7, 9 and 12</b>, the ones with dots on your guitar. For any other note, walk from the nearest landmark.',
+      'Only three rows are new: D, G and B. High e is the same as low E, and fret 12 is always the open string again.' ],
+      table: [['', 'Open', 'Fret 3', 'Fret 5', 'Fret 7', 'Fret 9', 'Fret 12'], ['High e', 'E', 'G', 'A', 'B', 'C♯', 'E'], ['B', 'B', 'D', 'E', 'F♯', 'G♯', 'B'], ['G', 'G', 'A♯', 'C', 'D', 'E', 'G'], ['D', 'D', 'F', 'G', 'A', 'B', 'D'], ['A', 'A', 'C', 'D', 'E', 'F♯', 'A'], ['Low E', 'E', 'G', 'A', 'B', 'C♯', 'E']],
+      ex: 'G string fret 10? Fret 9 is E, one fret up (E–F) = <b>F</b>.', fig: 0 },
     { h: 'Not sure? Check with the octave shape', p: [
       '<b>Up a string</b> means towards the thin high e. From any note, go <b>two strings up and two frets higher</b>: the same note, one octave up. Landing on B or high e? Go <b>three</b> frets higher.',
       'To check a note, run it backwards (two strings down, two frets lower; three from B or high e) until you reach low E or A, where you know the notes.' ],
