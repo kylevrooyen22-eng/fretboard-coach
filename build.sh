@@ -1,7 +1,12 @@
 #!/bin/sh
 # Website build: full HTML document + Supabase client + config. Usage: SB_URL=... SB_KEY=... ./build-web.sh
 set -e
-:
+# No keys passed? Reuse the ones in the current index.html, and refuse to build without them.
+if [ -z "$SB_URL" ] && [ -f index.html ]; then
+  SB_URL=$(grep -o "FC_WEB={url:'[^']*'" index.html | sed "s/.*url:'//;s/'$//")
+  SB_KEY=$(grep -o ",key:'[^']*'}" index.html | sed "s/,key:'//;s/'}$//")
+fi
+[ -n "$SB_URL" ] && [ -n "$SB_KEY" ] || { echo "Missing SB_URL / SB_KEY: build stopped"; exit 1; }
 OUT=index.html
 {
   echo '<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">'
